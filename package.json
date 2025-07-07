@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@clerk/clerk-react": "^5.32.2",
+    "rc-slider": "^11.1.8"
+  }
+}

@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema(
     resume: { type: String },
     image: { type: String },
     profileImage: { type: String },
+    savedJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Job" }],
   },
   {
     timestamps: true,

@@ -1,6 +1,7 @@
 import Job from "../models/Job.js";
 import Company from "../models/Company.js";
 import JobApplication from "../models/JobApplication.js";
+import translationService from "../services/translationService.js";
 
 export const getJob = async (req, res) => {
   try {
@@ -96,11 +97,19 @@ export const getCompanyJobApplicants = async (req, res) => {
   try {
     const companyId = req.company._id;
     const applications = await JobApplication.find({ companyId })
-      .populate("userId", "firstName lastName email resume image profileImage")
+      .populate(
+        "userId",
+        "_id firstName lastName email resume image profileImage"
+      )
       .populate("jobId", "title");
 
+    // Filter out applications with missing userId or jobId after population
+    const filteredApplications = applications.filter(
+      (app) => app.userId && app.jobId
+    );
+
     // Add full name to each application's user data
-    const modifiedApplications = applications.map((app) => ({
+    const modifiedApplications = filteredApplications.map((app) => ({
       ...app.toObject(),
       userId: {
         ...app.userId.toObject(),
@@ -229,25 +238,56 @@ export const deleteJob = async (req, res) => {
 
 export const postJob = async (req, res) => {
   try {
-    const { title, description, location, salary, level, category } = req.body;
+    const {
+      title,
+      description,
+      location,
+      salary,
+      level,
+      mainCategory,
+      category,
+      workType,
+      workSetup,
+      originalLanguage,
+    } = req.body;
     const companyId = req.company._id;
 
+    // Create job with basic data
     const job = new Job({
       title,
       description,
       location,
       salary,
       level,
+      mainCategory,
       category,
+      workType,
+      workSetup,
       date: Date.now(),
       companyId,
+      originalLanguage: originalLanguage || "en",
     });
+
+    // Perform translation
+    try {
+      const translationResult = await translationService.translateJob({
+        title,
+        description,
+        originalLanguage: originalLanguage || "en",
+      });
+
+      // Update job with translation data
+      Object.assign(job, translationResult);
+    } catch (translationError) {
+      console.error("Translation error:", translationError);
+      // Continue with job posting even if translation fails
+    }
 
     await job.save();
 
     res.json({
       success: true,
-      message: "Job posted successfully",
+      message: "Job posted successfully with translation",
       job,
     });
   } catch (error) {

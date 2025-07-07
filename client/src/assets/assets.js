@@ -270,7 +270,7 @@ export const jobsData = [
   {
     _id: "2",
     title: "Data Scientist",
-    location: "Bo", // was "New York"
+    location: "Bo",
     level: "Intermediate Level",
     companyId: {
       _id: "670e4d25ca9fda8f1bf359b9",
@@ -298,7 +298,16 @@ export const jobsData = [
         </ol>`,
     salary: 72000,
     date: 1729681667114,
-    category: "Software Development & IT", // was "Data Science"
+    category: "Software Development & IT",
+    skills: [
+      "Python",
+      "R",
+      "SQL",
+      "Machine Learning",
+      "Data Visualization",
+      "Tableau",
+      "Power BI",
+    ],
   },
   {
     _id: "3",
@@ -369,8 +378,8 @@ export const jobsData = [
   {
     _id: "5",
     title: "Software Engineer",
-    location: "Koidu", // was "Hyderabad"
-    level: "Intermediate Level",
+    location: "Freetown",
+    level: "Entry Level",
     companyId: {
       _id: "670e4d25ca9fda8f1bf359b9",
       name: "Slack",
@@ -378,26 +387,28 @@ export const jobsData = [
       image: company_icon,
     },
     description: `
-        <p>Join our team as a Software Engineer to build high-quality applications that deliver exceptional user experiences. You will be responsible for designing, developing, and maintaining software solutions that meet business needs. Collaborating closely with other engineers, you will contribute to code reviews and ensure best practices are followed throughout the development process.</p>
+        <p>Join our dynamic team as a Software Engineer and contribute to the development of innovative software solutions. You will work on exciting projects that have a real impact on our users' lives. This role offers excellent opportunities for growth and learning in a collaborative environment.</p>
         <h2><strong>Key Responsibilities</strong></h2>
         <ol>
-            <li>Develop and maintain software applications that fulfill user requirements.</li>
-            <li>Collaborate with cross-functional teams to design scalable and efficient solutions.</li>
-            <li>Participate in code reviews to ensure code quality and maintainability.</li>
-            <li>Conduct testing and debugging to improve application functionality.</li>
-            <li>Document development processes and application designs.</li>
+            <li>Develop and maintain software applications using modern programming languages and frameworks.</li>
+            <li>Collaborate with cross-functional teams to design and implement new features.</li>
+            <li>Write clean, efficient, and well-documented code that follows best practices.</li>
+            <li>Participate in code reviews and contribute to team knowledge sharing.</li>
+            <li>Debug and troubleshoot software issues to ensure optimal performance.</li>
         </ol>
         <h2><strong>Skills Required</strong></h2>
         <ol>
-            <li>Proficient in Java or C# with a solid understanding of object-oriented programming.</li>
-            <li>Experience with Agile methodologies and software development life cycle.</li>
-            <li>Strong problem-solving skills and attention to detail.</li>
+            <li>Proficiency in at least one programming language (e.g., JavaScript, Python, Java).</li>
+            <li>Understanding of software development principles and methodologies.</li>
             <li>Familiarity with version control systems (e.g., Git).</li>
+            <li>Strong problem-solving skills and attention to detail.</li>
             <li>Excellent communication and teamwork abilities.</li>
         </ol>`,
-    salary: 91000,
+    salary: 45000,
     date: 1729681667114,
-    category: "Software Development & IT", // was "Programming"
+    category: "Software Development & IT",
+    skills: ["JavaScript", "Python", "Git", "Problem Solving", "Teamwork"],
+    urgent: true,
   },
   {
     _id: "6",
@@ -529,7 +540,16 @@ export const jobsData = [
         </ol>`,
     salary: 96000,
     date: 1729681667114,
-    category: "Software Development & IT", // was "Programming"
+    category: "Software Development & IT",
+    skills: [
+      "AWS",
+      "Azure",
+      "GCP",
+      "Docker",
+      "Kubernetes",
+      "Cloud Architecture",
+      "DevOps",
+    ],
   },
   {
     _id: "10",
@@ -661,7 +681,15 @@ export const jobsData = [
         </ol>`,
     salary: 77000,
     date: 1729681667114,
-    category: "Business & Finance", // was "Marketing"
+    category: "Business & Finance",
+    skills: [
+      "Digital Marketing",
+      "Social Media",
+      "Content Creation",
+      "Market Research",
+      "Analytics",
+      "Communication",
+    ],
   },
   {
     _id: "14",
@@ -994,3 +1022,270 @@ export const jobsData = [
     category: "Software Development & IT", // was "Programming"
   },
 ];
+
+export const jobCategories = {
+  Healthcare: [
+    "Nurse",
+    "Doctor",
+    "Pharmacist",
+    "Midwife",
+    "Community Health Worker",
+    "Lab Technician",
+    "Hospital Cleaner",
+    "Medical Records Clerk",
+    "Dental Assistant",
+    "Optician",
+    "Physiotherapist",
+    "Radiographer",
+    "Paramedic",
+    "Veterinary Assistant",
+    "Other Healthcare",
+  ],
+  Education: [
+    "Teacher (Primary)",
+    "Teacher (Secondary)",
+    "University Lecturer",
+    "Teaching Assistant",
+    "School Administrator",
+    "School Cleaner",
+    "Librarian",
+    "Early Childhood Educator",
+    "Tutor",
+    "Vocational Trainer",
+    "Other Education",
+  ],
+  "Agriculture & Farming": [
+    "Farmer (Crop)",
+    "Farmer (Livestock)",
+    "Fisherman",
+    "Farm Laborer",
+    "Tractor Operator",
+    "Poultry Worker",
+    "Agricultural Extension Worker",
+    "Plantation Worker",
+    "Horticulturist",
+    "Other Agriculture",
+  ],
+  Construction: [
+    "Mason / Bricklayer",
+    "Carpenter",
+    "Plumber",
+    "Electrician",
+    "Welder",
+    "Painter",
+    "Roofer",
+    "Construction Laborer",
+    "Site Supervisor",
+    "Foreman",
+    "Tiler",
+    "Steel Fixer",
+    "Other Construction",
+  ],
+  "Engineering & Technical Services": [
+    "Civil Engineer",
+    "Mechanical Engineer",
+    "Electrical Engineer",
+    "Agricultural Engineer",
+    "Architect",
+    "Draftsman",
+    "Land Surveyor",
+    "Geologist",
+    "Lab Technician (Non-medical)",
+    "Quality Assurance/Control",
+    "Other Engineering",
+  ],
+  "Mining & Natural Resources": [
+    "Mining Engineer",
+    "Geologist",
+    "Driller",
+    "Blaster",
+    "Heavy Equipment Operator",
+    "Mine Supervisor",
+    "Environmental Officer",
+    "Mineral Processing Operator",
+    "Other Mining",
+  ],
+  "Domestic Work & Cleaning": [
+    "Housemaid / Housekeeper",
+    "Cleaner",
+    "Cook",
+    "Nanny / Babysitter",
+    "Laundry Worker",
+    "Gardener",
+    "Security Guard (Home)",
+    "Houseboy",
+    "Other Domestic Work",
+  ],
+  "Driving & Transport": [
+    "Driver (Car/Van)",
+    "Truck Driver",
+    "Okada Rider (Motorbike)",
+    "Tricycle Rider (Kekeh)",
+    "Bus Driver",
+    "Conductor",
+    "Delivery Rider",
+    "Mechanic (Vehicle)",
+    "Transport Supervisor",
+    "Logistics Officer",
+    "Other Transport",
+  ],
+  Security: [
+    "Security Guard",
+    "Watchman",
+    "Night Guard",
+    "Bouncer",
+    "Private Investigator",
+    "CCTV Operator",
+    "Other Security",
+  ],
+  "Retail, Sales & Customer Service": [
+    "Shopkeeper",
+    "Market Trader",
+    "Salesperson",
+    "Cashier",
+    "Store Attendant",
+    "Customer Service Agent",
+    "Merchandiser",
+    "Inventory Clerk",
+    "Pharmacist Assistant",
+    "Petrol Station Attendant",
+    "Other Retail/Sales",
+  ],
+  "Hospitality & Food Service": [
+    "Waiter / Waitress",
+    "Bartender",
+    "Chef / Cook",
+    "Hotel Receptionist",
+    "Hotel Manager",
+    "Hotel Cleaner",
+    "Porter",
+    "Event Staff",
+    "Dishwasher",
+    "Room Attendant",
+    "Tour Guide",
+    "Other Hospitality",
+  ],
+  "Office & Administration": [
+    "Office Clerk",
+    "Secretary",
+    "Receptionist",
+    "Personal Assistant",
+    "Executive Assistant",
+    "Data Entry Clerk",
+    "Office Cleaner",
+    "Messenger",
+    "HR Officer",
+    "Admin Manager",
+    "Project Coordinator",
+    "Other Office/Admin",
+  ],
+  "Technology & IT": [
+    "IT Technician",
+    "Computer Operator",
+    "Web Developer",
+    "Software Engineer",
+    "Network Administrator",
+    "Data Analyst",
+    "Graphic Designer",
+    "Social Media Manager",
+    "Database Administrator",
+    "UI/UX Designer",
+    "Other IT/Tech",
+  ],
+  "Manufacturing & Production": [
+    "Factory Worker",
+    "Machine Operator",
+    "Assembler",
+    "Quality Control Inspector",
+    "Production Supervisor",
+    "Packer",
+    "Welder (Factory)",
+    "Industrial Mechanic",
+    "Other Manufacturing",
+  ],
+  "Artisans & Skilled Trades": [
+    "Tailor / Dressmaker",
+    "Barber",
+    "Hairdresser",
+    "Beautician",
+    "Cobbler / Shoe Repair",
+    "Upholsterer",
+    "Goldsmith / Jeweler",
+    "Blacksmith",
+    "Carpenter (Furniture)",
+    "Videographer",
+    "DJ (Disc Jockey)",
+    "Event Planner/Decorator",
+    "Printing Press Operator",
+    "Artist",
+    "Other Artisan/Trade",
+  ],
+  "Unskilled Labor": [
+    "Laborer",
+    "Porter",
+    "Loader",
+    "Street Sweeper",
+    "Waste Collector",
+    "Other Unskilled",
+  ],
+  "Finance & Business": [
+    "Accountant",
+    "Auditor",
+    "Banker",
+    "Loan Officer",
+    "Microfinance Agent",
+    "Business Manager",
+    "Insurance Agent",
+    "Procurement Officer",
+    "Business Consultant",
+    "Economist",
+    "Investment Analyst",
+    "Other Finance/Business",
+  ],
+  "NGO & Community Work": [
+    "Community Mobilizer",
+    "Social Worker",
+    "Project Officer",
+    "Field Enumerator",
+    "Program Manager",
+    "Monitoring & Evaluation Officer",
+    "Volunteer",
+    "Other NGO/Community",
+  ],
+  "Legal & Law": [
+    "Lawyer",
+    "Paralegal",
+    "Court Clerk",
+    "Legal Secretary",
+    "Other Legal",
+  ],
+  "Media & Communication": [
+    "Journalist",
+    "Radio Presenter",
+    "TV Presenter",
+    "Cameraman",
+    "Photographer",
+    "Editor",
+    "Public Relations Officer",
+    "Content Creator",
+    "Translator / Interpreter",
+    "Other Media/Comms",
+  ],
+  "Government & Civil Service": [
+    "Administrative Officer",
+    "Civil Servant",
+    "Police Officer",
+    "Military Personnel",
+    "Immigration Officer",
+    "Customs Officer",
+    "Firefighter",
+    "Local Government Worker",
+    "Tax Officer",
+    "Court Clerk (Government)",
+    "Public Health Worker",
+    "Social Welfare Officer",
+    "Government Driver",
+    "Other Government",
+  ],
+  Other: [],
+};

@@ -1,17 +1,18 @@
-import React from "react";
+import React, { useRef } from "react";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import JobListing from "../components/JobListing";
 import Footer from "../components/Footer";
-import Calltoaction from "../components/Calltoaction";
 
-const Home = () => {
+const Home = ({ setShowAuthModal, setAuthMode }) => {
+  const jobListingRef = useRef(null);
   return (
     <div>
-      <Navbar />
-      <Hero />
-      <JobListing />
-      <Calltoaction />
+      <Navbar setShowAuthModal={setShowAuthModal} setAuthMode={setAuthMode} />
+      <Hero jobListingRef={jobListingRef} />
+      <div ref={jobListingRef}>
+        <JobListing />
+      </div>
       <Footer />
     </div>
   );

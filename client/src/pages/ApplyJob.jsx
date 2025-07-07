@@ -1,34 +1,38 @@
-import React, { useContext, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useContext, useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
-import Loading from "../components/Loading";
-import Navbar from "../components/Navbar";
-import { assets } from "../assets/assets";
-import kConvert from "k-convert";
-import moment from "moment";
-import JobCard from "../components/JobCard";
-import Footer from "../components/Footer";
-import axios from "axios";
-import { toast } from "react-toastify";
-import { useAuth } from "@clerk/clerk-react";
-import Calltoaction from "../components/Calltoaction";
 import { motion } from "framer-motion";
 import {
   FiMapPin,
   FiBriefcase,
-  FiDollarSign,
   FiClock,
   FiCheckCircle,
   FiExternalLink,
 } from "react-icons/fi";
+import { toast } from "react-toastify";
+import axios from "axios";
+import { useAuth, useUser } from "@clerk/clerk-react";
+import moment from "moment";
+import kConvert from "k-convert";
+import JobCard from "../components/JobCard";
+import Loading from "../components/Loading";
+import Footer from "../components/Footer";
+import { assets } from "../assets/assets";
+import { Languages, Globe, Volume2, VolumeX } from "lucide-react";
 
 const ApplyJob = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useUser();
   const { getToken } = useAuth();
   const [jobData, setJobData] = useState(null);
   const [isAlreadyApplied, setAlreadyApplied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [similarJobs, setSimilarJobs] = useState([]);
+  const [preferredLanguage, setPreferredLanguage] = useState("en");
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const manualStopRef = useRef(false);
 
   const {
     jobs = [],
@@ -130,13 +134,176 @@ const ApplyJob = () => {
     checkAlreadyApplied();
   }, [jobData, userApplications]);
 
+  // Get the appropriate title and description based on language preference
+  const getDisplayTitle = () => {
+    if (preferredLanguage === "krio" && jobData?.titleKrio) {
+      return jobData.titleKrio;
+    }
+    if (preferredLanguage === "en" && jobData?.titleEnglish) {
+      return jobData.titleEnglish;
+    }
+    return jobData?.title || "Job Title";
+  };
+
+  const getDisplayDescription = () => {
+    if (preferredLanguage === "krio" && jobData?.descriptionKrio) {
+      return jobData.descriptionKrio;
+    }
+    if (preferredLanguage === "en" && jobData?.descriptionEnglish) {
+      return jobData.descriptionEnglish;
+    }
+    return jobData?.description || "No description provided";
+  };
+
+  // Simplified location display
+  const displayLocation = jobData?.location
+    ? `${jobData.location.town}, ${jobData.location.district}, ${jobData.location.province}`
+    : "Location not specified";
+
+  // Check if job has translations
+  const hasTranslations =
+    jobData?.titleKrio ||
+    jobData?.titleEnglish ||
+    jobData?.descriptionKrio ||
+    jobData?.descriptionEnglish;
+
+  // Function to remove HTML tags from description
+  const stripHtmlTags = (html) => {
+    if (!html) return "No description provided";
+    return html.replace(/<[^>]*>?/gm, "");
+  };
+
+  // Audio narration function
+  const handleAudioNarration = () => {
+    // Always cancel any ongoing speech before starting
+    window.speechSynthesis.cancel();
+    if (isPlayingAudio) {
+      manualStopRef.current = true;
+      setIsPlayingAudio(false);
+      // Reset manual stop flag after a short delay to prevent error messages
+      setTimeout(() => (manualStopRef.current = false), 100);
+      return;
+    }
+    manualStopRef.current = false;
+
+    // Create the narration text
+    const title = getDisplayTitle();
+    const description = stripHtmlTags(getDisplayDescription());
+    const company = jobData?.companyId?.name || "Company";
+    const salary = jobData?.salary
+      ? `Le ${kConvert.convertTo(jobData.salary)}`
+      : "Salary not specified";
+    const level = jobData?.level || "Level not specified";
+    const category = jobData?.category || "Category not specified";
+    const timePosted = moment(jobData?.date).fromNow();
+
+    let narrationText = "";
+
+    if (preferredLanguage === "krio") {
+      // Format salary with "leones" after the amount for proper Krio speech
+      const salaryForSpeech =
+        salary.replace(/Le\s*/g, "").replace(/,/g, "") + " leones";
+      narrationText = `Dis nah work way ${company} post. This work dae look for person way nah ${title}. Di work dae nah ${displayLocation}. Di salary nah ${salaryForSpeech} for month. Dis nah ${level} position pa ${category} work. Di description for this work nah: ${description}. Dem post dis job ${timePosted}.`;
+
+      // Create speech synthesis with natural Sierra Leonean Krio pronunciation
+      const utterance = new SpeechSynthesisUtterance(narrationText);
+      utterance.lang = "en-GB"; // British English for better Krio pronunciation
+      utterance.rate = 0.75; // Slower, more natural pace
+      utterance.pitch = 1.1; // Slightly higher pitch for more human-like sound
+      utterance.volume = 1;
+
+      // Try to get a more natural voice
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(
+        (voice) =>
+          voice.lang.includes("en-GB") ||
+          voice.lang.includes("en-US") ||
+          voice.name.includes("Google") ||
+          voice.name.includes("Natural")
+      );
+
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+
+      // Set up event handlers
+      utterance.onstart = () => {
+        console.log("Audio started");
+        setIsPlayingAudio(true);
+      };
+
+      utterance.onend = () => {
+        console.log("Audio ended, manualStop:", manualStopRef.current);
+        if (!manualStopRef.current) {
+          setIsPlayingAudio(false);
+        }
+      };
+
+      utterance.onerror = (event) => {
+        console.log(
+          "Audio error:",
+          event.error,
+          "manualStop:",
+          manualStopRef.current
+        );
+        // Only show error if it's not a manual stop
+        if (!manualStopRef.current) {
+          setIsPlayingAudio(false);
+          toast.error("Audio narration failed. Please try again.");
+        } else {
+          setIsPlayingAudio(false);
+          toast.info("Audio narration incomplete.");
+        }
+      };
+
+      // Start speaking
+      window.speechSynthesis.speak(utterance);
+    } else {
+      // Format salary with "leones" after the amount for proper English speech
+      const salaryForSpeech =
+        salary.replace(/Le\s*/g, "").replace(/,/g, "") + " leones";
+      narrationText = `This is a job posted by ${company}. The job title is ${title}. The job is located in ${displayLocation}. The salary is ${salaryForSpeech} per month. This is a ${level} position in ${category}. The job description is: ${description}. This job was posted ${timePosted}.`;
+
+      // Create speech synthesis
+      const utterance = new SpeechSynthesisUtterance(narrationText);
+      utterance.lang = "en-US";
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      // Set up event handlers
+      utterance.onstart = () => {
+        setIsPlayingAudio(true);
+      };
+
+      utterance.onend = () => {
+        if (!manualStopRef.current) {
+          setIsPlayingAudio(false);
+        }
+      };
+
+      utterance.onerror = (event) => {
+        // Only show error if it's not a manual stop
+        if (!manualStopRef.current) {
+          setIsPlayingAudio(false);
+          toast.error("Audio narration failed. Please try again.");
+        } else {
+          setIsPlayingAudio(false);
+          toast.info("Audio narration incomplete.");
+        }
+      };
+
+      // Start speaking
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   if (isLoading || !jobData) {
     return <Loading />;
   }
 
   return (
     <>
-      <Navbar />
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -144,13 +311,13 @@ const ApplyJob = () => {
       >
         <div className="min-h-screen bg-gray-50">
           {/* Job Header Section */}
-          <div className="bg-black py-12 px-4 sm:px-6 lg:px-8">
+          <div className="bg-white py-12 px-4 sm:px-6 lg:px-8 border-b border-gray-200">
             <div className="max-w-7xl mx-auto">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
                 <div className="flex items-start space-x-6">
                   <motion.div
                     whileHover={{ scale: 1.05 }}
-                    className="bg-white p-3 rounded-lg shadow-lg border border-white/20"
+                    className="bg-white p-3 rounded-xl shadow-md border border-gray-100"
                   >
                     <img
                       className="h-20 w-20 object-contain"
@@ -159,33 +326,67 @@ const ApplyJob = () => {
                     />
                   </motion.div>
                   <div>
-                    <h1 className="text-3xl font-bold text-white">
-                      {jobData?.title}
+                    <h1 className="text-3xl font-bold text-gray-800">
+                      {getDisplayTitle()}
                     </h1>
-                    <p className="text-xl text-white mt-1">
+                    <p className="text-xl text-gray-600 mt-1">
                       {jobData?.companyId?.name}
                     </p>
 
-                    <div className="flex flex-wrap gap-4 mt-4">
-                      <div className="flex items-center text-white">
-                        <FiMapPin className="mr-2" />
-                        {jobData?.location}
+                    {/* Language Toggle */}
+                    {hasTranslations && (
+                      <div className="flex items-center gap-3 mt-4">
+                        <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+                          <button
+                            type="button"
+                            onClick={() => setPreferredLanguage("en")}
+                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                              preferredLanguage === "en"
+                                ? "bg-white text-gray-800 shadow-sm"
+                                : "text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            English
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPreferredLanguage("krio")}
+                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                              preferredLanguage === "krio"
+                                ? "bg-white text-gray-800 shadow-sm"
+                                : "text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            Krio
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAudioNarration}
+                          className={`flex items-center gap-1.5 text-sm font-medium transition-colors p-2 rounded-lg ${
+                            isPlayingAudio
+                              ? "bg-red-50 text-red-600 hover:bg-red-100"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                          title={
+                            isPlayingAudio
+                              ? "Stop audio narration"
+                              : `Listen to job in ${
+                                  preferredLanguage === "en"
+                                    ? "English"
+                                    : "Krio"
+                                }`
+                          }
+                        >
+                          {isPlayingAudio ? (
+                            <VolumeX className="h-4 w-4" />
+                          ) : (
+                            <Volume2 className="h-4 w-4" />
+                          )}
+                          {isPlayingAudio ? "Stop" : "Listen"}
+                        </button>
                       </div>
-                      <div className="flex items-center text-white">
-                        <FiBriefcase className="mr-2" />
-                        {jobData?.level}
-                      </div>
-                      <div className="flex items-center text-white">
-                        <p className="px-1">Le</p>
-                        {jobData?.salary
-                          ? kConvert.convertTo(jobData.salary)
-                          : "Competitive"}
-                      </div>
-                      <div className="flex items-center text-white">
-                        <FiClock className="mr-2" />
-                        Posted {moment(jobData?.date).fromNow()}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -196,29 +397,110 @@ const ApplyJob = () => {
                   <button
                     onClick={applyHandler}
                     disabled={isAlreadyApplied}
-                    className={`px-8 py-4 rounded-lg font-semibold text-lg shadow-lg transition-all ${
+                    className={`w-full md:w-auto px-8 py-4 rounded-lg font-semibold text-lg shadow-md transition-all ${
                       isAlreadyApplied
-                        ? "bg-emerald-600 text-white flex items-center"
-                        : "bg-white text-black  hover:shadow-xl"
+                        ? "bg-green-600 text-white flex items-center cursor-not-allowed"
+                        : "bg-gray-800 text-white hover:bg-gray-700"
                     }`}
                   >
                     {isAlreadyApplied ? (
                       <>
                         <FiCheckCircle className="mr-2" />
-                        Applied Successfully
+                        Applied
                       </>
                     ) : (
                       "Apply Now"
                     )}
                   </button>
                   {!isAlreadyApplied && (
-                    <p className="mt-2 text-white text-sm">
+                    <p className="mt-2 text-gray-500 text-sm">
                       {userData?.resume
                         ? "Your resume is ready"
                         : "Upload resume to apply"}
                     </p>
                   )}
                 </motion.div>
+              </div>
+
+              <div className="mt-8 mb-8 bg-white rounded-xl shadow-md p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">
+                  Full Job Details
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm text-gray-700">
+                  <div>
+                    <span className="font-semibold">Job Title:</span>{" "}
+                    {jobData?.title}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Company:</span>{" "}
+                    {jobData?.companyId?.name}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Main Category:</span>{" "}
+                    {jobData?.mainCategory}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Category:</span>{" "}
+                    {jobData?.category}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Experience Level:</span>{" "}
+                    {jobData?.level}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Work Type:</span>{" "}
+                    {jobData?.workType}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Work Setup:</span>{" "}
+                    {jobData?.workSetup}
+                  </div>
+                  <div className="flex gap-4 items-center">
+                    <span className="font-semibold">Salary:</span>
+                    {jobData?.salary &&
+                    typeof jobData.salary === "object" &&
+                    jobData.salary.min &&
+                    jobData.salary.max ? (
+                      <>
+                        <div className="flex flex-col items-center mr-2">
+                          <span className="text-xs text-gray-500">Min</span>
+                          <span className="font-mono bg-gray-100 px-3 py-1 rounded">
+                            Le {kConvert.convertTo(jobData.salary.min)}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-500">Max</span>
+                          <span className="font-mono bg-gray-100 px-3 py-1 rounded">
+                            Le {kConvert.convertTo(jobData.salary.max)}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="font-mono bg-gray-100 px-3 py-1 rounded">
+                        {jobData?.salary
+                          ? `Le ${kConvert.convertTo(jobData.salary)}`
+                          : "Competitive"}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Province:</span>{" "}
+                    {jobData?.location?.province}
+                  </div>
+                  <div>
+                    <span className="font-semibold">District:</span>{" "}
+                    {jobData?.location?.district}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Town:</span>{" "}
+                    {jobData?.location?.town}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Posted:</span>{" "}
+                    {jobData?.date ? moment(jobData.date).format("LL") : "N/A"}
+                  </div>
+                  {/* Add more fields as needed */}
+                </div>
               </div>
             </div>
           </div>
@@ -234,13 +516,50 @@ const ApplyJob = () => {
                   transition={{ delay: 0.2 }}
                   className="bg-white rounded-xl shadow-md p-8 mb-8"
                 >
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                    Job Description
-                  </h2>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800">
+                      Job Description
+                    </h2>
+
+                    {/* Language Toggle for Description */}
+                    {hasTranslations && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+                          <button
+                            type="button"
+                            onClick={() => setPreferredLanguage("en")}
+                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                              preferredLanguage === "en"
+                                ? "bg-gray-700 text-white"
+                                : "text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            English
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPreferredLanguage("krio")}
+                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                              preferredLanguage === "krio"
+                                ? "bg-gray-700 text-white"
+                                : "text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            Krio
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div
-                    className="prose max-w-none text-gray-700"
+                    className="prose max-w-none text-gray-700 overflow-x-auto max-h-[500px] md:max-h-[600px] lg:max-h-[700px] rounded border border-gray-100"
+                    style={{
+                      wordBreak: "break-word",
+                      overflowWrap: "break-word",
+                    }}
                     dangerouslySetInnerHTML={{
-                      __html: jobData?.description || "",
+                      __html: getDisplayDescription(),
                     }}
                   ></div>
                 </motion.div>
@@ -300,7 +619,7 @@ const ApplyJob = () => {
                   </p>
                   <a
                     href={`/company/${jobData?.companyId?._id}`}
-                    className="text-gray-600 hover:text-black hover:underline font-medium flex items-center"
+                    className="text-green-600 hover:text-green-700 hover:underline font-medium flex items-center"
                   >
                     View company profile <FiExternalLink className="ml-1" />
                   </a>
@@ -332,7 +651,7 @@ const ApplyJob = () => {
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.5 }}
-                  className="bg-white border-4 border-black rounded-xl p-6"
+                  className="bg-white rounded-xl shadow-md p-6"
                 >
                   <h3 className="text-xl font-bold text-gray-800 mb-4">
                     Ready to apply?
@@ -342,8 +661,8 @@ const ApplyJob = () => {
                     disabled={isAlreadyApplied}
                     className={`w-full px-6 py-3 rounded-lg font-semibold text-lg shadow-md transition-all ${
                       isAlreadyApplied
-                        ? "bg-gray-500 text-white flex items-center justify-center"
-                        : "bg-white text-black border-2 border-black hover:text-white hover:bg-black hover:shadow-lg"
+                        ? "bg-gray-200 text-gray-500 flex items-center justify-center cursor-not-allowed"
+                        : "bg-gray-800 text-white hover:bg-gray-700"
                     }`}
                   >
                     {isAlreadyApplied ? (
@@ -356,7 +675,7 @@ const ApplyJob = () => {
                     )}
                   </button>
                   {!userData?.resume && !isAlreadyApplied && (
-                    <p className="mt-3 text-sm text-black">
+                    <p className="mt-3 text-sm text-gray-600">
                       Don't forget to upload your resume first
                     </p>
                   )}
@@ -365,7 +684,6 @@ const ApplyJob = () => {
             </div>
           </div>
         </div>
-        <Calltoaction />
         <Footer />
       </motion.div>
     </>

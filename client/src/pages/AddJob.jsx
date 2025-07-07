@@ -1,25 +1,122 @@
 import Quill from "quill";
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { JobCategories, JobLocations } from "../assets/assets";
 import axios from "axios";
 import { AppContext } from "../context/AppContext";
 import { toast } from "react-toastify";
 import { motion } from "framer-motion";
+import { Languages, Globe } from "lucide-react";
+import { jobCategories } from "../assets/assets"; // Import the new categories
+
+const workTypes = ["Full-time", "Part-time", "Contract", "Internship"];
+const workSetups = ["On-site", "Remote", "Hybrid"];
+
+const sierraLeoneDistricts = [
+  { district: "Kailahun", province: "Eastern", capital: "Kailahun" },
+  { district: "Kenema", province: "Eastern", capital: "Kenema" },
+  { district: "Kono", province: "Eastern", capital: "Koidu Town" },
+  { district: "Bombali", province: "Northern", capital: "Makeni" },
+  { district: "Falaba", province: "Northern", capital: "Bendugu" },
+  { district: "Koinadugu", province: "Northern", capital: "Kabala" },
+  { district: "Tonkolili", province: "Northern", capital: "Magburaka" },
+  { district: "Kambia", province: "Northern", capital: "Kambia" },
+  { district: "Karene", province: "Northern", capital: "Kamakwie" },
+  { district: "Port Loko", province: "Northern", capital: "Port Loko" },
+  { district: "Bo", province: "Southern", capital: "Bo" },
+  { district: "Bonthe", province: "Southern", capital: "Bonthe" },
+  { district: "Moyamba", province: "Southern", capital: "Moyamba" },
+  { district: "Pujehun", province: "Southern", capital: "Pujehun" },
+  {
+    district: "Western Area Rural",
+    province: "Western Area",
+    capital: "Waterloo",
+  },
+  {
+    district: "Western Area Urban",
+    province: "Western Area",
+    capital: "Freetown",
+  },
+];
+const provinceOptions = [
+  "Eastern",
+  "Northern",
+  "North West",
+  "Southern",
+  "Western Area",
+];
+
+const mainCategories = Object.keys(jobCategories);
+
+// Prepare capital towns for dropdown (add Lunsar, Masiaka, Lungi for Port Loko)
+const capitalTowns = [
+  ...sierraLeoneDistricts.map((d) => d.capital),
+  "Lunsar",
+  "Masiaka",
+  "Lungi",
+];
 
 const AddJob = () => {
+  const [isLoading, setIsLoading] = useState(true);
   const [title, setTitle] = useState("");
-  const [location, setLocation] = useState("Freetown");
-  const [category, setCategory] = useState("Software Development & IT");
+  const [province, setProvince] = useState("Western Area");
+  const [district, setDistrict] = useState("Western Area Urban");
+  const [town, setTown] = useState("");
+
+  // New Category States
+  const [mainCategory, setMainCategory] = useState(mainCategories[0]);
+  const [subCategory, setSubCategory] = useState(
+    jobCategories[mainCategories[0]][0]
+  );
+  const [otherCategory, setOtherCategory] = useState(""); // For custom category input
+
   const [level, setLevel] = useState("Junior Level");
   const [salary, setSalary] = useState(0);
+  const [workType, setWorkType] = useState("Full-time");
+  const [workSetup, setWorkSetup] = useState("On-site");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formStep, setFormStep] = useState(1);
   const [isFormValid, setIsFormValid] = useState(false);
+  const [originalLanguage, setOriginalLanguage] = useState("en");
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translatedTitle, setTranslatedTitle] = useState("");
+  const [translatedDescription, setTranslatedDescription] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const editorRef = useRef(null);
   const quillRef = useRef(null);
 
   const { backendUrl, companyToken } = useContext(AppContext);
+
+  const [townMode, setTownMode] = useState("dropdown"); // 'dropdown' or 'manual'
+  const [manualTown, setManualTown] = useState("");
+
+  // Helper to get district/province by capital (handle Lunsar, Masiaka, Lungi)
+  const getDistrictProvinceByCapital = (capital) => {
+    if (["Lunsar", "Masiaka", "Lungi"].includes(capital)) {
+      return { district: "Port Loko", province: "Northern" };
+    }
+    const found = sierraLeoneDistricts.find((d) => d.capital === capital);
+    return found
+      ? { district: found.district, province: found.province }
+      : { district: "", province: "" };
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 300); // Brief delay for perceived loading
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Update sub-category options when main category changes
+  useEffect(() => {
+    // If the new main category is not "Other" and has subcategories, set the first one as default.
+    if (mainCategory !== "Other" && jobCategories[mainCategory]?.length > 0) {
+      setSubCategory(jobCategories[mainCategory][0]);
+    } else {
+      // If "Other" or an empty category is selected, clear the subcategory.
+      setSubCategory("");
+    }
+    // Clear the "Other" input when main category changes.
+    setOtherCategory("");
+  }, [mainCategory]);
 
   // Validate the form
   useEffect(() => {
@@ -29,6 +126,47 @@ const AddJob = () => {
       setIsFormValid(false);
     }
   }, [title, salary]);
+
+  // Auto-translate when language changes or content changes
+  useEffect(() => {
+    if (
+      title.trim() ||
+      (quillRef.current && quillRef.current.root.innerHTML.trim())
+    ) {
+      handleAutoTranslate();
+    }
+  }, [title, originalLanguage]);
+
+  const handleAutoTranslate = async () => {
+    if (!title.trim()) return;
+
+    setIsTranslating(true);
+    try {
+      const description = quillRef.current
+        ? quillRef.current.root.innerHTML
+        : "";
+
+      const { data } = await axios.post(`${backendUrl}/api/translate/job`, {
+        title,
+        description,
+        originalLanguage,
+      });
+
+      if (data.success) {
+        if (originalLanguage === "en") {
+          setTranslatedTitle(data.translations.titleKrio || "");
+          setTranslatedDescription(data.translations.descriptionKrio || "");
+        } else {
+          setTranslatedTitle(data.translations.titleEnglish || "");
+          setTranslatedDescription(data.translations.descriptionEnglish || "");
+        }
+      }
+    } catch (error) {
+      console.error("Translation error:", error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
@@ -40,11 +178,38 @@ const AddJob = () => {
 
     try {
       setIsSubmitting(true);
-      const description = quillRef.current.root.innerHTML;
+      // Safety Check: ensure quillRef exists before getting its content
+      const description = quillRef.current
+        ? quillRef.current.root.innerHTML
+        : "";
+
+      // Determine the category to be sent
+      const finalCategory =
+        mainCategory === "Other" ? otherCategory : subCategory;
+
+      if (!finalCategory) {
+        toast.error("Please specify a job category.");
+        return;
+      }
 
       const { data } = await axios.post(
         backendUrl + "/api/company/post-job",
-        { title, description, location, category, level, salary },
+        {
+          title,
+          description,
+          location: {
+            province,
+            district,
+            town: townMode === "manual" ? manualTown : town,
+          },
+          mainCategory: mainCategory, // Send main category
+          category: finalCategory, // Send subcategory or custom category
+          level,
+          salary,
+          workType,
+          workSetup,
+          originalLanguage,
+        },
         { headers: { token: companyToken } }
       );
 
@@ -52,8 +217,23 @@ const AddJob = () => {
         toast.success(data.message);
         setTitle("");
         setSalary(0);
-        quillRef.current.root.innerHTML = "";
+        // Safety Check: ensure quillRef exists before clearing it
+        if (quillRef.current) {
+          quillRef.current.root.innerHTML = "";
+        }
         setFormStep(1);
+        setOriginalLanguage("en");
+        setTranslatedTitle("");
+        setTranslatedDescription("");
+        setShowTranslation(false);
+        setProvince("Western Area");
+        setDistrict("Western Area Urban");
+        setTown("");
+        setMainCategory(mainCategories[0]);
+        setSubCategory(jobCategories[mainCategories[0]][0]);
+        setOtherCategory("");
+        setWorkType("Full-time");
+        setWorkSetup("On-site");
       } else {
         toast.error(data.message);
       }
@@ -65,8 +245,8 @@ const AddJob = () => {
   };
 
   useEffect(() => {
-    // Initiate Quill only Once
-    if (!quillRef.current && editorRef.current) {
+    // Re-applying the fix: Initiate Quill only once Step 2 is active.
+    if (formStep === 2 && !quillRef.current && editorRef.current) {
       quillRef.current = new Quill(editorRef.current, {
         theme: "snow",
         modules: {
@@ -90,7 +270,34 @@ const AddJob = () => {
         placeholder: "Create a detailed job description...",
       });
     }
-  }, []);
+  }, [formStep]); // Rerun this effect when the form step changes.
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <svg
+          className="animate-spin h-10 w-10 text-gray-500"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+      </div>
+    );
+  }
 
   const formVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -119,7 +326,7 @@ const AddJob = () => {
         </div>
         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-gray-500 to-black transition-all duration-300 ease-in-out"
+            className="h-full bg-gray-700 transition-all duration-300 ease-in-out"
             style={{ width: `${(formStep / 3) * 100}%` }}
           ></div>
         </div>
@@ -135,7 +342,7 @@ const AddJob = () => {
         >
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
             <div className="flex items-center mb-6">
-              <div className="h-10 w-10 rounded-full bg-black flex items-center justify-center text-white font-semibold mr-3">
+              <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold mr-3">
                 1
               </div>
               <h3 className="text-xl font-semibold text-gray-800">
@@ -155,7 +362,7 @@ const AddJob = () => {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none transition-all duration-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none transition-all duration-200"
                   />
                   {title && (
                     <span className="absolute right-3 top-3 text-green-500">
@@ -176,6 +383,104 @@ const AddJob = () => {
                 </div>
               </div>
 
+              {/* Language Selection */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <Languages className="h-5 w-5 text-gray-700" />
+                    <h4 className="text-sm font-medium text-gray-900">
+                      Language & Translation
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTranslation(!showTranslation)}
+                    className="flex items-center space-x-1 text-gray-700 hover:text-gray-800 text-sm font-medium"
+                  >
+                    <Globe className="h-4 w-4" />
+                    <span>{showTranslation ? "Hide" : "Show"} Translation</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-800 mb-1">
+                      Original Language
+                    </label>
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setOriginalLanguage("en")}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          originalLanguage === "en"
+                            ? "bg-gray-700 text-white"
+                            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        English
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOriginalLanguage("krio")}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          originalLanguage === "krio"
+                            ? "bg-gray-700 text-white"
+                            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        Krio
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-700 mt-1">
+                      Choose the language you're writing in. We'll automatically
+                      translate to the other language.
+                    </p>
+                  </div>
+
+                  {/* Translation Preview */}
+                  {showTranslation && title && (
+                    <div className="bg-white rounded-md p-3 border border-gray-200">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Globe className="h-4 w-4 text-gray-700" />
+                        <span className="text-sm font-medium text-gray-900">
+                          Translation Preview
+                        </span>
+                        {isTranslating && (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700"></div>
+                        )}
+                      </div>
+
+                      {translatedTitle && (
+                        <div className="mb-2">
+                          <span className="text-xs font-medium text-gray-600">
+                            {originalLanguage === "en" ? "Krio" : "English"}{" "}
+                            Title:
+                          </span>
+                          <p className="text-sm text-gray-800 mt-1">
+                            {translatedTitle}
+                          </p>
+                        </div>
+                      )}
+
+                      {translatedDescription && (
+                        <div>
+                          <span className="text-xs font-medium text-gray-600">
+                            {originalLanguage === "en" ? "Krio" : "English"}{" "}
+                            Description:
+                          </span>
+                          <div
+                            className="text-sm text-gray-800 mt-1 prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{
+                              __html: translatedDescription,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Salary (Annual) <span className="text-red-500">*</span>
@@ -191,7 +496,7 @@ const AddJob = () => {
                     value={salary || ""}
                     onChange={(e) => setSalary(parseInt(e.target.value) || 0)}
                     required
-                    className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none transition-all duration-200"
+                    className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none transition-all duration-200"
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
@@ -206,7 +511,7 @@ const AddJob = () => {
               type="button"
               onClick={() => setFormStep(2)}
               disabled={!title || salary <= 0}
-              className={`px-6 py-3 bg-white text-black border-2 border-black font-medium rounded-lg shadow-md hover:bg-black hover:text-white focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition-all duration-200 ${
+              className={`px-6 py-3 bg-white text-gray-700 border-2 border-gray-700 font-medium rounded-lg shadow-md hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-gray-700 focus:ring-offset-2 transition-all duration-200 ${
                 !title || salary <= 0 ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
@@ -236,7 +541,7 @@ const AddJob = () => {
         >
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
             <div className="flex items-center mb-6">
-              <div className="h-10 w-10 rounded-full bg-black flex items-center justify-center text-white font-semibold mr-3">
+              <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold mr-3">
                 2
               </div>
               <h3 className="text-xl font-semibold text-gray-800">
@@ -259,36 +564,156 @@ const AddJob = () => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Job Category
+                    Work Type
                   </label>
                   <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
+                    value={workType}
+                    onChange={(e) => setWorkType(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none bg-white transition-all duration-200"
                   >
-                    {JobCategories.map((cat, index) => (
-                      <option key={index} value={cat}>
-                        {cat}
+                    {workTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
                       </option>
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Job Location
+                    Work Setup
                   </label>
                   <select
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
+                    value={workSetup}
+                    onChange={(e) => setWorkSetup(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none bg-white transition-all duration-200"
                   >
-                    {JobLocations.map((loc, index) => (
-                      <option key={index} value={loc}>
-                        {loc}
+                    {workSetups.map((setup) => (
+                      <option key={setup} value={setup}>
+                        {setup}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Job Category <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <select
+                    value={mainCategory}
+                    onChange={(e) => setMainCategory(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none bg-white transition-all duration-200"
+                  >
+                    {mainCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                  {mainCategory !== "Other" ? (
+                    <select
+                      value={subCategory}
+                      onChange={(e) => setSubCategory(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none bg-white transition-all duration-200"
+                    >
+                      {jobCategories[mainCategory]?.map((subCat) => (
+                        <option key={subCat} value={subCat}>
+                          {subCat}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Enter custom job title"
+                      value={otherCategory}
+                      onChange={(e) => setOtherCategory(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none transition-all duration-200"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Town / Village
+                  </label>
+                  <select
+                    value={townMode === "dropdown" ? town : "notfound"}
+                    onChange={(e) => {
+                      if (e.target.value === "notfound") {
+                        setTownMode("manual");
+                        setTown("");
+                        setDistrict("");
+                        setProvince("");
+                      } else {
+                        setTownMode("dropdown");
+                        setTown(e.target.value);
+                        const { district, province } =
+                          getDistrictProvinceByCapital(e.target.value);
+                        setDistrict(district);
+                        setProvince(province);
+                      }
+                    }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none bg-white transition-all duration-200"
+                  >
+                    <option value="" disabled>
+                      Select major town
+                    </option>
+                    {capitalTowns.map((cap) => (
+                      <option key={cap} value={cap}>
+                        {cap}
+                      </option>
+                    ))}
+                    <option value="notfound">Town not found</option>
+                  </select>
+                  {townMode === "manual" && (
+                    <input
+                      type="text"
+                      placeholder="Enter town or village name"
+                      value={manualTown}
+                      onChange={(e) => setManualTown(e.target.value)}
+                      className="mt-2 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none transition-all duration-200"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    District
+                  </label>
+                  <select
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none bg-white transition-all duration-200"
+                    disabled={townMode === "dropdown"}
+                  >
+                    {sierraLeoneDistricts.map((d) => (
+                      <option key={d.district} value={d.district}>
+                        {d.district}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Province
+                  </label>
+                  <select
+                    value={province}
+                    onChange={(e) => setProvince(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none bg-white transition-all duration-200"
+                    disabled={townMode === "dropdown"}
+                  >
+                    {provinceOptions.map((prov) => (
+                      <option key={prov} value={prov}>
+                        {prov}
                       </option>
                     ))}
                   </select>
@@ -301,7 +726,7 @@ const AddJob = () => {
                   <select
                     value={level}
                     onChange={(e) => setLevel(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none bg-white transition-all duration-200"
                   >
                     <option value="Beginner level">Beginner level</option>
                     <option value="Intermediate level">
@@ -337,7 +762,7 @@ const AddJob = () => {
             <button
               type="button"
               onClick={() => setFormStep(3)}
-              className="px-6 py-3 bg-black text-white font-medium rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition-all duration-200"
+              className="px-6 py-3 bg-gray-700 text-white font-medium rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-gray-700 focus:ring-offset-2 transition-all duration-200"
             >
               Preview Job
               <svg
@@ -365,7 +790,7 @@ const AddJob = () => {
         >
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
             <div className="flex items-center mb-6">
-              <div className="h-10 w-10 rounded-full bg-black flex items-center justify-center text-white font-semibold mr-3">
+              <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold mr-3">
                 3
               </div>
               <h3 className="text-xl font-semibold text-gray-800">
@@ -381,14 +806,20 @@ const AddJob = () => {
                       {title || "Job Title"}
                     </h3>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {location}
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {town}, {district}, {province}
                       </span>
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {category}
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {subCategory}
                       </span>
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                         {level}
+                      </span>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {workType}
+                      </span>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {workSetup}
                       </span>
                     </div>
                   </div>
@@ -418,7 +849,8 @@ const AddJob = () => {
             </div>
           </div>
 
-          <div className="flex justify-between">
+          {/* Submit Button */}
+          <div className="flex justify-between items-center mt-8">
             <button
               type="button"
               onClick={() => setFormStep(2)}
@@ -436,58 +868,14 @@ const AddJob = () => {
                   clipRule="evenodd"
                 />
               </svg>
-              Edit Details
+              Back to Details
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !isFormValid}
-              className={`px-8 py-3 bg-gray-700 text-white font-medium rounded-lg shadow-md hover:bg-black focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition-all duration-200 ${
-                isSubmitting || !isFormValid
-                  ? "opacity-70 cursor-not-allowed"
-                  : ""
-              }`}
+              className="px-8 py-3 bg-gray-700 text-white font-semibold rounded-lg shadow-md hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 min-w-[150px]"
             >
-              {isSubmitting ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Posting...
-                </>
-              ) : (
-                <>
-                  Post Job
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 inline-block ml-2"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </>
-              )}
+              Post Job
             </button>
           </div>
         </motion.div>

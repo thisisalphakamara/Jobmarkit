@@ -18,7 +18,7 @@ import {
 
 const RecruiterLogin = () => {
   const navigate = useNavigate();
-  const [state, setState] = useState("Sign Up");
+  const [state, setState] = useState("Login");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
@@ -52,21 +52,21 @@ const RecruiterLogin = () => {
   const handleDragOver = (e) => {
     e.preventDefault();
     if (dragAreaRef.current) {
-      dragAreaRef.current.classList.add("border-blue-500", "bg-blue-50");
+      dragAreaRef.current.classList.add("border-gray-500", "bg-gray-50");
     }
   };
 
   const handleDragLeave = (e) => {
     e.preventDefault();
     if (dragAreaRef.current) {
-      dragAreaRef.current.classList.remove("border-blue-500", "bg-blue-50");
+      dragAreaRef.current.classList.remove("border-gray-500", "bg-gray-50");
     }
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     if (dragAreaRef.current) {
-      dragAreaRef.current.classList.remove("border-blue-500", "bg-blue-50");
+      dragAreaRef.current.classList.remove("border-gray-500", "bg-gray-50");
     }
 
     const file = e.dataTransfer.files[0];
@@ -101,7 +101,6 @@ const RecruiterLogin = () => {
           setCompanyData(data.company);
           setCompanyToken(data.token);
           localStorage.setItem("companyToken", data.token);
-          toast.success("Login successful! Redirecting to dashboard...");
           setTimeout(() => {
             setShowRecruiterLogin(false);
             navigate("/dashboard");
@@ -131,7 +130,6 @@ const RecruiterLogin = () => {
           setCompanyData(data.company);
           setCompanyToken(data.token);
           localStorage.setItem("companyToken", data.token);
-          toast.success("Account created successfully! Welcome aboard!");
           setTimeout(() => {
             setShowRecruiterLogin(false);
             navigate("/dashboard");
@@ -206,49 +204,35 @@ const RecruiterLogin = () => {
       animate="visible"
       variants={overlayVariants}
     >
-      <motion.div className="relative w-full max-w-md" variants={modalVariants}>
+      <motion.div className="relative w-full max-w-sm" variants={modalVariants}>
         <div className="relative overflow-hidden bg-white rounded-3xl shadow-2xl">
-          {/* Glass effect top area */}
-          <div className="relative h-32 bg-black flex items-center justify-center">
-            {/* Blurred circles for decoration */}
-            <div className="absolute -top-8 -left-8 w-32 h-32 rounded-full bg-black opacity-20 blur-xl"></div>
-            <div className="absolute bottom-0 right-0 w-40 h-40 rounded-full bg-black opacity-20 blur-xl"></div>
-
-            {/* Floating avatar container */}
-            <div className="absolute -bottom-12 flex items-center justify-center w-24 h-24 rounded-full bg-white shadow-lg p-1">
-              <div className="flex items-center justify-center w-full h-full bg-black rounded-full">
-                <User size={36} className="text-white" />
+          <div className="relative h-24 bg-gray-700 flex items-center justify-center">
+            <div className="absolute -top-8 -left-8 w-24 h-24 rounded-full bg-gray-500 opacity-20 blur-xl"></div>
+            <div className="absolute bottom-0 right-0 w-32 h-32 rounded-full bg-gray-500 opacity-20 blur-xl"></div>
+            <div className="absolute -bottom-10 flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-lg p-1">
+              <div className="flex items-center justify-center w-full h-full bg-gray-700 rounded-full">
+                <User size={28} className="text-white" />
               </div>
             </div>
           </div>
-
-          {/* Header text */}
-          <div className="px-8 pt-16 pb-4">
-            <h1 className="text-2xl font-bold text-center text-gray-800 mb-1">
-              {state === "Login"
-                ? "Welcome Back"
-                : isTextDataSubmited
-                ? "Add Your Brand"
-                : "Join Our Platform"}
+          <div className="px-4 pt-10 pb-2">
+            <h1 className="text-xl font-bold text-center text-gray-800 mb-1">
+              {state === "Login" ? "Recruiter Login" : "Recruiter Sign Up"}
             </h1>
-            <p className="text-sm text-center text-gray-500">
+            <p className="text-xs text-center text-gray-500">
               {state === "Login"
-                ? "Access your recruiter dashboard"
-                : isTextDataSubmited
-                ? "Upload your company logo to complete setup"
-                : "Create an account to find top talent"}
+                ? "Sign in to manage your jobs"
+                : "Create a recruiter account"}
             </p>
           </div>
-
           <AnimatePresence mode="wait">
             <motion.form
-              key={`${state}-${isTextDataSubmited}`}
               initial="hidden"
               animate="visible"
               exit="exit"
               variants={formVariants}
               onSubmit={onSubmitHandler}
-              className="px-8 pb-6 space-y-4"
+              className="px-4 pb-4 space-y-3"
             >
               {state === "Sign Up" && isTextDataSubmited ? (
                 <div className="flex flex-col items-center my-6">
@@ -257,7 +241,7 @@ const RecruiterLogin = () => {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    className="relative w-40 h-40 mb-4 overflow-hidden rounded-full border-2 border-dashed border-gray-300 transition-all duration-300 group cursor-pointer hover:border-blue-400 bg-gray-50 flex items-center justify-center"
+                    className="relative w-40 h-40 mb-4 overflow-hidden rounded-full border-2 border-dashed border-gray-300 transition-all duration-300 group cursor-pointer hover:border-gray-500 bg-gray-50 flex items-center justify-center"
                   >
                     {image ? (
                       <div className="relative w-full h-full">
@@ -281,7 +265,7 @@ const RecruiterLogin = () => {
                         htmlFor="logo-upload"
                         className="flex flex-col items-center justify-center w-full h-full cursor-pointer"
                       >
-                        <div className="p-4 rounded-full bg-blue-50 text-black mb-3">
+                        <div className="p-4 rounded-full bg-gray-50 text-black mb-3">
                           <Upload size={28} />
                         </div>
                         <span className="text-sm font-medium text-black">
@@ -316,11 +300,11 @@ const RecruiterLogin = () => {
                       </label>
                       <input
                         id="company-name"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-gray-400"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all placeholder:text-gray-400"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         type="text"
-                        placeholder="Enter your company name"
+                        placeholder="Company name"
                         required
                       />
                     </div>
@@ -336,11 +320,11 @@ const RecruiterLogin = () => {
                     </label>
                     <input
                       id="email"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-gray-400"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all placeholder:text-gray-400"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       type="email"
-                      placeholder="Enter your email address"
+                      placeholder="Company email"
                       required
                     />
                   </div>
@@ -356,15 +340,11 @@ const RecruiterLogin = () => {
                     <div className="relative">
                       <input
                         id="password"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-gray-400"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all placeholder:text-gray-400"
                         value={password}
                         onChange={handlePasswordChange}
                         type={showPassword ? "text" : "password"}
-                        placeholder={
-                          state === "Login"
-                            ? "Enter your password"
-                            : "Create a strong password"
-                        }
+                        placeholder="Create a password"
                         required
                       />
                       <button
@@ -393,7 +373,7 @@ const RecruiterLogin = () => {
                                     ? "bg-red-400"
                                     : passwordStrength <= 3
                                     ? "bg-yellow-400"
-                                    : "bg-green-400"
+                                    : "bg-gray-200"
                                   : "bg-gray-200"
                               }`}
                             ></div>
@@ -417,7 +397,7 @@ const RecruiterLogin = () => {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                    className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
                   >
                     Forgot password?
                   </button>
@@ -427,7 +407,7 @@ const RecruiterLogin = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="relative w-full py-3.5 mt-4 font-medium border-black text-black border-2 transition-all bg-white hover:bg-black hover:text-white  rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-md hover:shadow-lg disabled:opacity-70"
+                className="relative w-full py-3.5 mt-4 font-medium bg-gray-700 text-white hover:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 shadow-md hover:shadow-lg disabled:opacity-70 transition-all duration-300"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center">
@@ -517,7 +497,7 @@ const RecruiterLogin = () => {
                   onClick={() =>
                     switchMode(state === "Login" ? "Sign Up" : "Login")
                   }
-                  className="font-bold text-black transition-colors"
+                  className="font-bold text-gray-700 hover:text-gray-800 transition-colors"
                 >
                   {state === "Login" ? "Sign up now" : "Sign in"}
                 </button>
@@ -529,7 +509,7 @@ const RecruiterLogin = () => {
           <button
             type="button"
             onClick={() => setShowRecruiterLogin(false)}
-            className="absolute top-4 right-4 p-2 text-white/80 transition-colors rounded-full hover:bg-white/20 hover:text-white focus:outline-none"
+            className="absolute top-4 right-4 p-2 text-gray-500 transition-colors rounded-full hover:bg-gray-100 hover:text-gray-700 focus:outline-none"
             aria-label="Close"
           >
             <X size={18} />

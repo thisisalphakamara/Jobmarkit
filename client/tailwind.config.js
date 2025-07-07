@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [  
-    "./index.html",  
-    "./src/**/*.{js,ts,jsx,tsx}",  
-  ],
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -15,7 +12,7 @@ export default {
       },
       fontFamily: {
         primary: ["Syne", "serif"], // Add "Roboto" as your primary font
-        secondary: ["Outfit", "serif"],   // Add "Lobster" as a secondary font
+        secondary: ["Outfit", "serif"], // Add "Lobster" as a secondary font
       },
     },
   },

@@ -11,11 +11,11 @@ import {
 
 const AppDownload = () => {
   return (
-    <section className="relative bg-gradient-to-br from-blue-50 to-indigo-50 overflow-hidden">
+    <section className="relative bg-gradient-to-br from-purple-50 to-purple-50 overflow-hidden">
       {/* Decorative elements */}
       <div className="absolute top-0 left-0 w-full h-full opacity-10">
-        <div className="absolute top-20 left-20 w-40 h-40 bg-indigo-300 rounded-full mix-blend-multiply filter blur-xl"></div>
-        <div className="absolute bottom-20 right-20 w-60 h-60 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl"></div>
+        <div className="absolute top-20 left-20 w-40 h-40 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl"></div>
+        <div className="absolute bottom-20 right-20 w-60 h-60 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl"></div>
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
@@ -29,7 +29,7 @@ const AppDownload = () => {
           {/* Content */}
           <div className="relative z-10">
             <motion.span
-              className="inline-block px-3 py-1 text-sm font-medium text-indigo-700 bg-indigo-100 rounded-full mb-4"
+              className="inline-block px-3 py-1 text-sm font-medium text-purple-700 bg-purple-100 rounded-full mb-4"
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
@@ -43,7 +43,10 @@ const AppDownload = () => {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              Discover Your <span className="text-indigo-600">Dream Job</span>{" "}
+              Discover Your{" "}
+              <span className="bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                Dream Job
+              </span>{" "}
               Today
             </motion.h1>
 
@@ -66,7 +69,7 @@ const AppDownload = () => {
               transition={{ delay: 0.5 }}
             >
               <div className="flex items-start">
-                <div className="flex-shrink-0 bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                <div className="flex-shrink-0 bg-green-100 p-2 rounded-lg text-green-600">
                   <FiSearch className="w-5 h-5" />
                 </div>
                 <div className="ml-4">
@@ -81,7 +84,7 @@ const AppDownload = () => {
               </div>
 
               <div className="flex items-start">
-                <div className="flex-shrink-0 bg-blue-100 p-2 rounded-lg text-blue-600">
+                <div className="flex-shrink-0 bg-purple-100 p-2 rounded-lg text-purple-600">
                   <FiDollarSign className="w-5 h-5" />
                 </div>
                 <div className="ml-4">
@@ -118,14 +121,14 @@ const AppDownload = () => {
             >
               <Link
                 to="/jobs"
-                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 text-center"
+                className="px-8 py-4 bg-[#6B46C1] hover:bg-purple-700 text-white font-medium rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 text-center"
               >
                 Browse Jobs
               </Link>
 
               <Link
                 to="/recruiter-dashboard"
-                className="px-8 py-4 bg-white hover:bg-gray-50 text-indigo-600 font-medium rounded-lg shadow-sm border border-gray-300 transition-all duration-300 flex items-center justify-center gap-2"
+                className="px-8 py-4 bg-white hover:bg-gray-50 text-green-600 font-medium rounded-lg shadow-sm border border-gray-300 transition-all duration-300 flex items-center justify-center gap-2"
               >
                 Recruiter Dashboard
                 <FiArrowRight className="w-4 h-4" />
@@ -151,8 +154,8 @@ const AppDownload = () => {
               {/* Floating card element */}
               <div className="absolute bottom-6 left-6 right-6 bg-white p-4 rounded-xl shadow-lg max-w-xs">
                 <div className="flex items-center mb-2">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
-                    <FiSearch className="text-indigo-600 w-5 h-5" />
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                    <FiSearch className="text-green-600 w-5 h-5" />
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-900">UX Designer</h4>
@@ -160,10 +163,10 @@ const AppDownload = () => {
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-indigo-600 font-medium">
+                  <span className="text-green-600 font-medium">
                     $95k - $120k
                   </span>
-                  <button className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">
+                  <button className="text-xs bg-green-50 text-green-600 px-3 py-1 rounded-full">
                     Apply now
                   </button>
                 </div>

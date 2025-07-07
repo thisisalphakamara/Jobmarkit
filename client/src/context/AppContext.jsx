@@ -16,32 +16,33 @@ export const AppContextProvider = (props) => {
     location: "",
   });
 
-  const [isSearched, setIsSearched] = useState(false); // Changed setter to camelCase
+  const [isSearched, setIsSearched] = useState(false);
 
   const [jobs, setJobs] = useState([]);
 
   const [showRecruiterLogin, setShowRecruiterLogin] = useState(false);
 
-  const [companyToken, setCompanyToken] = useState(
+  const [companyToken, setCompanyToken] = useState(() =>
     localStorage.getItem("companyToken")
   );
   const [companyData, setCompanyData] = useState(null);
+  const [isCompanyAuthLoading, setIsCompanyAuthLoading] = useState(true);
 
   const [userData, setUserData] = useState(null);
   const [userApplications, setUserApplications] = useState(null);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const updateJobs = (newJobs) => {
     setJobs(newJobs);
   };
 
-  // Function to Fetch Jobs data
   const fetchJobs = async () => {
     try {
       const { data } = await axios.get(backendUrl + "/api/jobs");
 
       if (data.success) {
         setJobs(data.jobs);
-        console.log(data.jobs);
       } else {
         toast.error(data.message);
       }
@@ -50,27 +51,41 @@ export const AppContextProvider = (props) => {
     }
   };
 
-  // Function to fetch Compnay Data
-  // Function to fetch Compnay Data
+  const logoutCompany = () => {
+    setCompanyToken(null);
+    setCompanyData(null);
+    localStorage.removeItem("companyToken");
+    localStorage.removeItem("companyData");
+    setIsCompanyAuthLoading(false);
+  };
+
   const fetchCompanyData = async () => {
+    if (!companyToken) {
+      setIsCompanyAuthLoading(false);
+      return;
+    }
+
+    setIsCompanyAuthLoading(true);
     try {
       const response = await axios.get(backendUrl + "/api/company/company", {
         headers: { token: companyToken },
       });
       const data = response.data;
-      console.log(data); // Move the console.log statement here
 
       if (data.success) {
         setCompanyData(data.company);
       } else {
         toast.error(data.message);
+        logoutCompany();
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error("Session expired. Please log in again.");
+      logoutCompany();
+    } finally {
+      setIsCompanyAuthLoading(false);
     }
   };
 
-  // Function to fetch User Data
   const fetchUserData = async () => {
     try {
       const token = await getToken();
@@ -89,7 +104,6 @@ export const AppContextProvider = (props) => {
     }
   };
 
-  // Function to fetch User's  Applied data
   const fetchUserApplications = async () => {
     try {
       const token = await getToken();
@@ -188,6 +202,9 @@ export const AppContextProvider = (props) => {
     fetchUserData,
     fetchUserApplications,
     updateJobs,
+    isCompanyAuthLoading,
+    isModalOpen,
+    setIsModalOpen,
   };
 
   return (

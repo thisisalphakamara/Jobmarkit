@@ -83,7 +83,7 @@ const ManageJobs = () => {
 
   if (!jobs || jobs.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[70vh] bg-white rounded-xl shadow-md">
+      <div className="flex items-center justify-center h-[70vh] bg-white rounded-xl shadow-sm border border-gray-100">
         <p className="text-xl sm:text-2xl text-gray-600">
           No Jobs Available or posted
         </p>
@@ -105,7 +105,7 @@ const ManageJobs = () => {
       <div className="container p-4 mx-auto">
         {/* Dashboard Header */}
         <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-black mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
             Manage Jobs
           </h1>
           <p className="text-gray-600">
@@ -115,53 +115,50 @@ const ManageJobs = () => {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-black">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 border-l-4 border-gray-500">
             <p className="text-gray-500 text-sm mb-1">Total Jobs</p>
-            <p className="text-2xl font-bold text-black">{jobs.length}</p>
+            <p className="text-2xl font-bold text-gray-600">{jobs.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 border-l-4 border-green-500">
             <p className="text-gray-500 text-sm mb-1">Active Jobs</p>
             <p className="text-2xl font-bold text-green-600">
               {jobs.filter((job) => job.visible).length}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-blue-500">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 border-l-4 border-gray-500">
             <p className="text-gray-500 text-sm mb-1">Total Applicants</p>
-            <p className="text-2xl font-bold text-blue-600">
+            <p className="text-2xl font-bold text-gray-600">
               {jobs.reduce((sum, job) => sum + job.applicants, 0)}
             </p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
           <div className="overflow-x-auto w-full">
-            <table className="w-full text-black">
-              <thead className="bg-gray-50 border-b">
+            <table className="w-full text-gray-700">
+              <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="py-4 px-6 text-left max-sm:hidden sm:text-[16px] font-semibold">
+                  <th className="py-4 px-6 text-left max-sm:hidden sm:text-[16px] font-semibold text-gray-700">
                     #
                   </th>
-                  <th className="py-4 px-6 text-left sm:text-[16px] font-semibold">
+                  <th className="py-4 px-6 text-left sm:text-[16px] font-semibold text-gray-700">
                     Job Title
                   </th>
-                  <th className="py-4 px-6 text-left max-sm:hidden sm:text-[16px] font-semibold">
+                  <th className="py-4 px-6 text-left max-sm:hidden sm:text-[16px] font-semibold text-gray-700">
                     Date
                   </th>
-                  <th className="py-4 px-6 text-left max-sm:hidden sm:text-[16px] font-semibold">
+                  <th className="py-4 px-6 text-left max-sm:hidden sm:text-[16px] font-semibold text-gray-700">
                     Location
                   </th>
-                  <th className="py-4 px-6 text-center sm:text-[16px] font-semibold">
+                  <th className="py-4 px-6 text-center sm:text-[16px] font-semibold text-gray-700">
                     <span className="flex items-center justify-center">
                       Applicants
                     </span>
                   </th>
-                  <th className="py-4 px-6 text-center sm:text-[16px] font-semibold">
-                    Visible
-                  </th>
-                  <th className="py-4 px-6 text-center sm:text-[16px] font-semibold">
+                  <th className="py-4 px-6 text-center sm:text-[16px] font-semibold text-gray-700">
                     Edit Job
                   </th>
-                  <th className="py-4 px-6 text-center sm:text-[16px] font-semibold">
+                  <th className="py-4 px-6 text-center sm:text-[16px] font-semibold text-gray-700">
                     Delete Job
                   </th>
                 </tr>
@@ -170,21 +167,27 @@ const ManageJobs = () => {
                 {jobs.map((job, index) => (
                   <tr
                     key={index}
-                    className="text-gray-700 sm:text-[15px] border-b hover:bg-gray-50 transition-colors"
+                    className="text-gray-700 sm:text-[15px] border-b border-gray-100 hover:bg-gray-50/30 transition-colors"
                   >
                     <td className="py-4 px-6 max-sm:hidden">{index + 1}</td>
-                    <td className="py-4 px-6 font-medium">{job.title}</td>
-                    <td className="py-4 px-6 max-sm:hidden">
-                      {moment(job.date).format("ll")}
+                    <td className="py-4 px-6 font-medium text-gray-800">
+                      {job?.title || "Untitled Job"}
                     </td>
-                    <td className="py-4 px-6 max-sm:hidden">{job.location}</td>
+                    <td className="py-4 px-6 max-sm:hidden">
+                      {job?.date ? moment(job.date).format("ll") : "No Date"}
+                    </td>
+                    <td className="py-4 px-6 max-sm:hidden">
+                      {job?.location
+                        ? `${job.location.town}, ${job.location.province}`
+                        : "No Location"}
+                    </td>
                     <td className="py-4 px-6">
                       <div className="flex justify-center">
                         <span
                           className={`px-3 py-1 rounded-full text-sm ${
                             job.applicants > 0
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-gray-100 text-gray-600"
+                              ? "bg-gray-100 text-gray-800 border border-gray-200"
+                              : "bg-gray-100 text-gray-600 border border-gray-200"
                           }`}
                         >
                           {job.applicants}
@@ -193,24 +196,11 @@ const ManageJobs = () => {
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex justify-center">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            onChange={() => changeJobVisiblity(job._id)}
-                            className="sr-only peer"
-                            type="checkbox"
-                            checked={job.visible}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-black"></div>
-                        </label>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex justify-center">
                         <button
                           onClick={() =>
-                            navigate(`/dashboard/edit-job/${job._id}`)
+                            navigate(`/dashboard/edit-job/${job?._id}`)
                           }
-                          className="bg-gray-600 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-gray-200"
                         >
                           Edit
                         </button>
@@ -219,8 +209,8 @@ const ManageJobs = () => {
                     <td className="py-4 px-6">
                       <div className="flex justify-center">
                         <button
-                          onClick={() => deleteJob(job._id)}
-                          className="bg-red-600 hover:bg-red-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                          onClick={() => deleteJob(job?._id)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-red-200"
                         >
                           Delete
                         </button>
@@ -236,7 +226,7 @@ const ManageJobs = () => {
         <div className="flex justify-end">
           <button
             onClick={() => navigate("/dashboard/add-job")}
-            className="bg-gray-600 text-white py-3 px-6 rounded-xl font-medium hover:bg-black transition duration-300 ease-in-out flex items-center gap-2 shadow-md"
+            className="bg-gray-800 text-white py-3 px-6 rounded-xl font-medium hover:bg-gray-700 transition duration-300 ease-in-out flex items-center gap-2 shadow-sm border border-gray-200"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
