@@ -4,6 +4,7 @@ import "./index.css";
 import App from "./App.jsx";
 import { BrowserRouter } from "react-router-dom";
 import { AppContextProvider } from "./context/AppContext.jsx";
+import { SocketProvider } from "./context/SocketContext.jsx";
 import { ClerkProvider } from "@clerk/clerk-react";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
@@ -18,13 +19,17 @@ if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) {
   );
 }
 
+const backendUrl = import.meta.env.VITE_API_BASE_URL;
+
 createRoot(document.getElementById("root")).render(
   <ErrorBoundary>
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
       <BrowserRouter>
-        <AppContextProvider>
-          <App />
-        </AppContextProvider>
+        <SocketProvider backendUrl={backendUrl}>
+          <AppContextProvider>
+            <App />
+          </AppContextProvider>
+        </SocketProvider>
       </BrowserRouter>
     </ClerkProvider>
   </ErrorBoundary>

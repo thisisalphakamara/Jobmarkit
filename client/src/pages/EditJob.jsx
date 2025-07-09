@@ -6,7 +6,56 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import Loading from "../components/Loading";
 import { motion } from "framer-motion";
-import { JobCategories, JobLocations } from "../assets/assets";
+import { jobCategories } from "../assets/assets";
+import { Languages, Globe } from "lucide-react";
+
+const mainCategories = jobCategories.map((cat) => cat.label);
+
+const sierraLeoneDistricts = [
+  { district: "Kailahun", province: "Eastern", capital: "Kailahun" },
+  { district: "Kenema", province: "Eastern", capital: "Kenema" },
+  { district: "Kono", province: "Eastern", capital: "Koidu Town" },
+  { district: "Bombali", province: "Northern", capital: "Makeni" },
+  { district: "Falaba", province: "Northern", capital: "Bendugu" },
+  { district: "Koinadugu", province: "Northern", capital: "Kabala" },
+  { district: "Tonkolili", province: "Northern", capital: "Magburaka" },
+  { district: "Kambia", province: "Northern", capital: "Kambia" },
+  { district: "Karene", province: "Northern", capital: "Kamakwie" },
+  { district: "Port Loko", province: "Northern", capital: "Port Loko" },
+  { district: "Bo", province: "Southern", capital: "Bo" },
+  { district: "Bonthe", province: "Southern", capital: "Bonthe" },
+  { district: "Moyamba", province: "Southern", capital: "Moyamba" },
+  { district: "Pujehun", province: "Southern", capital: "Pujehun" },
+  {
+    district: "Western Area Rural",
+    province: "Western Area",
+    capital: "Waterloo",
+  },
+  {
+    district: "Western Area Urban",
+    province: "Western Area",
+    capital: "Freetown",
+  },
+];
+
+// Capital towns for dropdown (add Lunsar, Masiaka, Lungi for Port Loko)
+const capitalTowns = [
+  ...sierraLeoneDistricts.map((d) => d.capital),
+  "Lunsar",
+  "Masiaka",
+  "Lungi",
+];
+
+// Helper to get district/province by capital (used in AddJob)
+const getDistrictProvinceByCapital = (capital) => {
+  if (["Lunsar", "Masiaka", "Lungi"].includes(capital)) {
+    return { district: "Port Loko", province: "Northern" };
+  }
+  const found = sierraLeoneDistricts.find((d) => d.capital === capital);
+  return found
+    ? { district: found.district, province: found.province }
+    : { district: "", province: "" };
+};
 
 const EditJob = () => {
   const navigate = useNavigate();
@@ -17,26 +66,56 @@ const EditJob = () => {
   const [formStep, setFormStep] = useState(1);
   const [isFormValid, setIsFormValid] = useState(false);
 
-  const [jobData, setJobData] = useState({
-    title: "",
-    description: "",
-    location: "Freetown",
-    category: "Software Development & IT",
-    level: "Junior Level",
-    salary: 0,
+  // New state structure to match AddJob
+  const [title, setTitle] = useState("");
+  const [province, setProvince] = useState("Western Area");
+  const [district, setDistrict] = useState("Western Area Urban");
+  const [town, setTown] = useState("");
+  const [mainCategory, setMainCategory] = useState(mainCategories[0]);
+  const [subCategory, setSubCategory] = useState(() => {
+    const firstCat = jobCategories.find(
+      (cat) => cat.label === mainCategories[0]
+    );
+    return firstCat &&
+      firstCat.subcategories &&
+      firstCat.subcategories.length > 0
+      ? firstCat.subcategories[0].label
+      : "";
   });
+  const [otherCategory, setOtherCategory] = useState("");
+  const [level, setLevel] = useState("Junior Level");
+  const [salary, setSalary] = useState(0);
+  const [workType, setWorkType] = useState("Full-time");
+  const [workSetup, setWorkSetup] = useState("On-site");
+  const [townMode, setTownMode] = useState("dropdown");
+  const [manualTown, setManualTown] = useState("");
+
+  // Add translation state
+  const [originalLanguage, setOriginalLanguage] = useState("en");
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translatedTitle, setTranslatedTitle] = useState("");
+  const [translatedDescription, setTranslatedDescription] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const editorRef = useRef(null);
   const quillRef = useRef(null);
 
+  const provinceOptions = [
+    "Eastern",
+    "Northern",
+    "North West",
+    "Southern",
+    "Western Area",
+  ];
+
   // Validate the form
   useEffect(() => {
-    if (jobData.title.trim() && jobData.salary > 0) {
+    if (title.trim() && salary > 0) {
       setIsFormValid(true);
     } else {
       setIsFormValid(false);
     }
-  }, [jobData.title, jobData.salary]);
+  }, [title, salary]);
 
   // Fetch job data
   useEffect(() => {
@@ -48,12 +127,34 @@ const EditJob = () => {
             headers: { token: companyToken },
           }
         );
-
         if (data.success) {
-          setJobData(data.job);
-          // Initialize Quill after data is loaded
+          const job = data.job;
+          setTitle(job.title || "");
+          setSalary(job.salary || 0);
+          setLevel(job.level || "Junior Level");
+          setWorkType(job.workType || "Full-time");
+          setWorkSetup(job.workSetup || "On-site");
+          // Location
+          if (job.location && typeof job.location === "object") {
+            setProvince(job.location.province || "Western Area");
+            setDistrict(job.location.district || "Western Area Urban");
+            setTown(job.location.town || "");
+          } else {
+            setProvince("Western Area");
+            setDistrict("Western Area Urban");
+            setTown("");
+          }
+          // Category
+          setMainCategory(job.mainCategory || mainCategories[0]);
+          setSubCategory(job.category || "");
+          setOtherCategory("");
+          // Quill description
           if (quillRef.current) {
-            quillRef.current.root.innerHTML = data.job.description;
+            quillRef.current.root.innerHTML = job.description || "";
+          }
+          // Set original language if available
+          if (job.language) {
+            setOriginalLanguage(job.language);
           }
         } else {
           toast.error(data.message);
@@ -66,7 +167,6 @@ const EditJob = () => {
         setIsLoading(false);
       }
     };
-
     if (companyToken) {
       fetchJobData();
     }
@@ -99,40 +199,117 @@ const EditJob = () => {
       });
 
       // Set initial content if jobData.description exists
-      if (jobData.description) {
-        quillRef.current.root.innerHTML = jobData.description;
+      if (title) {
+        quillRef.current.root.innerHTML = title;
       }
     }
-  }, [jobData.description]);
+  }, [title]);
 
+  // Add effect to update subCategory when mainCategory changes (like AddJob)
+  useEffect(() => {
+    const selectedMainCategoryObj = jobCategories.find(
+      (cat) => cat.label === mainCategory
+    );
+    if (
+      mainCategory !== "Other" &&
+      selectedMainCategoryObj?.subcategories?.length > 0
+    ) {
+      setSubCategory(selectedMainCategoryObj.subcategories[0].label);
+    } else {
+      setSubCategory("");
+    }
+    setOtherCategory("");
+  }, [mainCategory]);
+
+  // Translation effect (copy from AddJob)
+  useEffect(() => {
+    if (
+      title.trim() ||
+      (quillRef.current && quillRef.current.root.innerHTML.trim())
+    ) {
+      handleAutoTranslate();
+    }
+  }, [title, originalLanguage]);
+
+  const handleAutoTranslate = async () => {
+    if (!title.trim()) return;
+    setIsTranslating(true);
+    try {
+      const description = quillRef.current
+        ? quillRef.current.root.innerHTML
+        : "";
+      const { data } = await axios.post(`${backendUrl}/api/translate/job`, {
+        title,
+        description,
+        originalLanguage,
+      });
+      if (data.success) {
+        if (originalLanguage === "en") {
+          setTranslatedTitle(data.translations.titleKrio || "");
+          setTranslatedDescription(data.translations.descriptionKrio || "");
+        } else {
+          setTranslatedTitle(data.translations.titleEnglish || "");
+          setTranslatedDescription(data.translations.descriptionEnglish || "");
+        }
+      }
+    } catch (error) {
+      console.error("Translation error:", error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  // Handlers for new fields
   const handleChange = (e) => {
-    setJobData({ ...jobData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === "province") setProvince(value);
+    else if (name === "district") setDistrict(value);
+    else if (name === "town") setTown(value);
+    else if (name === "mainCategory") setMainCategory(value);
+    else if (name === "subCategory") setSubCategory(value);
+    else if (name === "otherCategory") setOtherCategory(value);
+    else if (name === "level") setLevel(value);
+    else if (name === "salary") setSalary(Number(value));
+    else if (name === "workType") setWorkType(value);
+    else if (name === "workSetup") setWorkSetup(value);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isFormValid) {
+    if (!title.trim() || salary <= 0) {
       toast.error("Please fill all required fields");
       return;
     }
-
     setIsSubmitting(true);
     try {
       const description = quillRef.current.root.innerHTML;
-
-      // First update the job
+      const finalCategory =
+        mainCategory === "Other" ? otherCategory : subCategory;
       const updateResponse = await axios.put(
         `${backendUrl}/api/company/edit-job/${id}`,
-        { ...jobData, description },
+        {
+          title,
+          description,
+          location: {
+            province,
+            district,
+            town: townMode === "manual" ? manualTown : town,
+          },
+          mainCategory,
+          category: finalCategory,
+          level,
+          salary,
+          workType,
+          workSetup,
+          language: originalLanguage, // Add language to update
+        },
         {
           headers: { token: companyToken },
         }
       );
-
       if (!updateResponse.data.success) {
         throw new Error(updateResponse.data.message || "Failed to update job");
       }
-
       // Then fetch the updated jobs list
       const jobsResponse = await axios.get(
         `${backendUrl}/api/company/list-jobs`,
@@ -140,19 +317,15 @@ const EditJob = () => {
           headers: { token: companyToken },
         }
       );
-
       if (!jobsResponse.data.success) {
         throw new Error("Failed to fetch updated jobs list");
       }
-
-      // Update the jobs list in context
       updateJobs(jobsResponse.data.jobsData.reverse());
       toast.success("Job updated successfully!");
       navigate("/dashboard/manage-jobs");
     } catch (error) {
       console.error("Error:", error);
       toast.error(error.message || "Error updating job");
-      // Even if there's an error, try to navigate back
       navigate("/dashboard/manage-jobs");
     } finally {
       setIsSubmitting(false);
@@ -164,6 +337,18 @@ const EditJob = () => {
   const formVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+  };
+
+  // Helper to display location as a string
+  const getLocationString = (location) => {
+    if (!location) return "";
+    if (typeof location === "string") return location;
+    if (typeof location === "object") {
+      return [location.town, location.district, location.province]
+        .filter(Boolean)
+        .join(", ");
+    }
+    return "";
   };
 
   return (
@@ -217,13 +402,13 @@ const EditJob = () => {
                   <input
                     type="text"
                     name="title"
-                    value={jobData.title}
+                    value={title}
                     onChange={handleChange}
                     placeholder="e.g. Senior React Developer"
                     required
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none transition-all duration-200"
                   />
-                  {jobData.title && (
+                  {title && (
                     <span className="absolute right-3 top-3 text-green-500">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -242,6 +427,100 @@ const EditJob = () => {
                 </div>
               </div>
 
+              {/* Language Selection and Translation Preview (copy from AddJob) */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <Languages className="h-5 w-5 text-gray-700" />
+                    <h4 className="text-sm font-medium text-gray-900">
+                      Language & Translation
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTranslation(!showTranslation)}
+                    className="flex items-center space-x-1 text-gray-700 hover:text-gray-800 text-sm font-medium"
+                  >
+                    <Globe className="h-4 w-4" />
+                    <span>{showTranslation ? "Hide" : "Show"} Translation</span>
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-800 mb-1">
+                      Original Language
+                    </label>
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setOriginalLanguage("en")}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          originalLanguage === "en"
+                            ? "bg-gray-700 text-white"
+                            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        English
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOriginalLanguage("krio")}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          originalLanguage === "krio"
+                            ? "bg-gray-700 text-white"
+                            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        Krio
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-700 mt-1">
+                      Choose the language you're writing in. We'll automatically
+                      translate to the other language.
+                    </p>
+                  </div>
+                  {/* Translation Preview */}
+                  {showTranslation && title && (
+                    <div className="bg-white rounded-md p-3 border border-gray-200">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Globe className="h-4 w-4 text-gray-700" />
+                        <span className="text-sm font-medium text-gray-900">
+                          Translation Preview
+                        </span>
+                        {isTranslating && (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700"></div>
+                        )}
+                      </div>
+                      {translatedTitle && (
+                        <div className="mb-2">
+                          <span className="text-xs font-medium text-gray-600">
+                            {originalLanguage === "en" ? "Krio" : "English"}{" "}
+                            Title:
+                          </span>
+                          <p className="text-sm text-gray-800 mt-1">
+                            {translatedTitle}
+                          </p>
+                        </div>
+                      )}
+                      {translatedDescription && (
+                        <div>
+                          <span className="text-xs font-medium text-gray-600">
+                            {originalLanguage === "en" ? "Krio" : "English"}{" "}
+                            Description:
+                          </span>
+                          <div
+                            className="text-sm text-gray-800 mt-1 prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{
+                              __html: translatedDescription,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Salary (Annual) <span className="text-red-500">*</span>
@@ -255,7 +534,7 @@ const EditJob = () => {
                     name="salary"
                     min={0}
                     placeholder="e.g. 75000"
-                    value={jobData.salary || ""}
+                    value={salary || ""}
                     onChange={handleChange}
                     required
                     className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none transition-all duration-200"
@@ -272,11 +551,9 @@ const EditJob = () => {
             <button
               type="button"
               onClick={() => setFormStep(2)}
-              disabled={!jobData.title || jobData.salary <= 0}
+              disabled={!title || salary <= 0}
               className={`px-6 py-3 bg-white text-black border-2 border-black font-medium rounded-lg shadow-md hover:bg-black hover:text-white focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 transition-all duration-200 ${
-                !jobData.title || jobData.salary <= 0
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
+                !title || salary <= 0 ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
               Continue to Job Details
@@ -328,58 +605,178 @@ const EditJob = () => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Job Category
+                    Job Category <span className="text-red-500">*</span>
                   </label>
                   <select
-                    name="category"
-                    value={jobData.category}
-                    onChange={handleChange}
+                    value={mainCategory}
+                    onChange={(e) => setMainCategory(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
                   >
-                    {JobCategories.map((cat, index) => (
-                      <option key={index} value={cat}>
+                    {mainCategories.map((cat) => (
+                      <option key={cat} value={cat}>
                         {cat}
                       </option>
                     ))}
                   </select>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Job Location
-                  </label>
+                {mainCategory !== "Other" ? (
                   <select
-                    name="location"
-                    value={jobData.location}
-                    onChange={handleChange}
+                    value={subCategory}
+                    onChange={(e) => setSubCategory(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
                   >
-                    {JobLocations.map((loc, index) => (
-                      <option key={index} value={loc}>
-                        {loc}
+                    {jobCategories
+                      .find((cat) => cat.label === mainCategory)
+                      ?.subcategories?.map((subCat) => (
+                        <option key={subCat.label} value={subCat.label}>
+                          {subCat.icon} {subCat.label}
+                        </option>
+                      ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="Enter custom job title"
+                    value={otherCategory}
+                    onChange={(e) => setOtherCategory(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none transition-all duration-200"
+                  />
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 mt-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Work Type
+                  </label>
+                  <select
+                    value={workType}
+                    onChange={(e) => setWorkType(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
+                  >
+                    {["Full-time", "Part-time", "Contract", "Internship"].map(
+                      (type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Work Setup
+                  </label>
+                  <select
+                    value={workSetup}
+                    onChange={(e) => setWorkSetup(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
+                  >
+                    {["On-site", "Remote", "Hybrid"].map((setup) => (
+                      <option key={setup} value={setup}>
+                        {setup}
                       </option>
                     ))}
                   </select>
                 </div>
+              </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Experience Level
+                </label>
+                <select
+                  name="level"
+                  value={level}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
+                >
+                  <option value="Beginner level">Beginner level</option>
+                  <option value="Intermediate level">Intermediate level</option>
+                  <option value="Senior level">Senior level</option>
+                </select>
+              </div>
+
+              {/* Location Section */}
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Experience Level
+                    Town / Village
                   </label>
                   <select
-                    name="level"
-                    value={jobData.level}
-                    onChange={handleChange}
+                    value={townMode === "dropdown" ? town : "notfound"}
+                    onChange={(e) => {
+                      if (e.target.value === "notfound") {
+                        setTownMode("manual");
+                        setTown("");
+                        setDistrict("");
+                        setProvince("");
+                      } else {
+                        setTownMode("dropdown");
+                        setTown(e.target.value);
+                        const { district, province } =
+                          getDistrictProvinceByCapital(e.target.value);
+                        setDistrict(district);
+                        setProvince(province);
+                      }
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
                   >
-                    <option value="Beginner level">Beginner level</option>
-                    <option value="Intermediate level">
-                      Intermediate level
+                    <option value="" disabled>
+                      Select major town
                     </option>
-                    <option value="Senior level">Senior level</option>
+                    {capitalTowns.map((cap) => (
+                      <option key={cap} value={cap}>
+                        {cap}
+                      </option>
+                    ))}
+                    <option value="notfound">Town not found</option>
+                  </select>
+                  {townMode === "manual" && (
+                    <input
+                      type="text"
+                      placeholder="Enter town or village name"
+                      value={manualTown}
+                      onChange={(e) => setManualTown(e.target.value)}
+                      className="mt-2 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none transition-all duration-200"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    District
+                  </label>
+                  <select
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
+                    disabled={townMode === "dropdown"}
+                  >
+                    {sierraLeoneDistricts.map((d) => (
+                      <option key={d.district} value={d.district}>
+                        {d.district}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Province
+                  </label>
+                  <select
+                    value={province}
+                    onChange={(e) => setProvince(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black outline-none bg-white transition-all duration-200"
+                    disabled={townMode === "dropdown"}
+                  >
+                    {provinceOptions.map((prov) => (
+                      <option key={prov} value={prov}>
+                        {prov}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -449,23 +846,30 @@ const EditJob = () => {
               <div className="p-6 border border-dashed border-gray-300 rounded-xl bg-gray-50">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">
-                    {jobData.title || "Job Title"}
+                    {title || "Job Title"}
                   </h3>
                   <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {townMode === "manual" ? manualTown : town}, {district},{" "}
+                      {province}
+                    </span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {mainCategory !== "Other" ? subCategory : otherCategory}
+                    </span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {level}
+                    </span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      {workType}
+                    </span>
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {jobData.location}
-                    </span>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                      {jobData.category}
-                    </span>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                      {jobData.level}
+                      {workSetup}
                     </span>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="text-lg font-bold text-gray-900">
-                    Le {jobData.salary.toLocaleString()}
+                    Le {salary.toLocaleString()}
                   </span>
                   <p className="text-sm text-gray-500">per month</p>
                 </div>

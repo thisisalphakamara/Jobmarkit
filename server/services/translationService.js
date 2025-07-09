@@ -1,4 +1,9 @@
 import axios from "axios";
+import OpenAI from "openai";
+import dotenv from "dotenv";
+dotenv.config();
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 class TranslationService {
   constructor() {
@@ -76,6 +81,27 @@ class TranslationService {
     try {
       if (!text || text.trim() === "") {
         return text;
+      }
+
+      // Use OpenAI for robust English-to-Krio translation
+      if (fromLang === "en" && toLang === "krio") {
+        try {
+          const prompt = `Translate the following job posting into Sierra Leone Krio. Use natural, conversational Krio that is easy to understand for non-English speakers.\n\n${text}`;
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4",
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 1500,
+            temperature: 0.3,
+          });
+          const krioText = completion.choices[0].message.content.trim();
+          return krioText;
+        } catch (err) {
+          console.error(
+            "OpenAI Krio translation failed, falling back:",
+            err.message
+          );
+          // Fallback to old method below
+        }
       }
 
       // Map our language codes to MyMemory API codes

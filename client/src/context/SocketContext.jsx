@@ -12,8 +12,7 @@ export const useSocket = () => {
   return context;
 };
 
-export const SocketProvider = ({ children }) => {
-  const { backendUrl } = useContext(AppContext);
+export const SocketProvider = ({ children, backendUrl }) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 

@@ -49,7 +49,7 @@ const Dashboard = () => {
     },
     {
       name: "Manage Jobs",
-      path: "/dashboard/manage-job",
+      path: "/dashboard/manage-jobs",
       icon: <Briefcase size={18} />,
     },
     {

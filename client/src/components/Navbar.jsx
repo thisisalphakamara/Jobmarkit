@@ -10,9 +10,12 @@ const Navbar = ({ setShowAuthModal, setAuthMode }) => {
   const { user } = useUser();
   const { logout } = useAuthContext();
   const navigate = useNavigate();
-  const { setShowRecruiterLogin, backendUrl, userApplications } =
-    useContext(AppContext);
-  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+  const {
+    setShowRecruiterLogin,
+    backendUrl,
+    userApplications,
+    totalUnreadCount,
+  } = useContext(AppContext);
 
   // Check for unread messages
   useEffect(() => {
@@ -34,7 +37,7 @@ const Navbar = ({ setShowAuthModal, setAuthMode }) => {
             console.error("Error checking unread messages:", error);
           }
         }
-        setTotalUnreadCount(totalUnread);
+        // setTotalUnreadCount(totalUnread); // This line is removed as totalUnreadCount is now from AppContext
       }
     };
 

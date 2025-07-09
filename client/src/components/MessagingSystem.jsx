@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useLayoutEffect,
+  useContext,
+} from "react";
 import { AppContext } from "../context/AppContext";
 import { useSocket } from "../context/SocketContext";
 import axios from "axios";
@@ -68,6 +74,7 @@ const MessagingSystem = ({ selectedApplicant, onClose }) => {
   const audioRef = useRef(null);
   const [isActivelyViewing, setIsActivelyViewing] = useState(true);
   const [activeChatId, setActiveChatId] = useState(null);
+  const messagesContainerRef = useRef(null);
 
   // Message templates for Sierra Leone context
   const messageTemplates = [
@@ -225,34 +232,22 @@ Best regards,
   ];
 
   // Auto-scroll to bottom when new messages arrive
-  const scrollToBottom = (smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: smooth ? "smooth" : "auto",
-      block: "end",
-    });
+  const scrollToBottom = () => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   };
 
   useEffect(() => {
-    // Use immediate scroll for new messages to avoid delay
-    const isNewMessage =
-      messages.length > 0 && messages[messages.length - 1]?.timestamp;
-    const isRecentMessage =
-      isNewMessage &&
-      new Date(messages[messages.length - 1].timestamp).getTime() >
-        Date.now() - 10000; // Within last 10 seconds
-
-    scrollToBottom(!isRecentMessage); // Smooth for old messages, immediate for new ones
-  }, [messages]);
-
-  // Scroll to bottom when component is first mounted with messages
-  useEffect(() => {
-    if (messages.length > 0 && !loading) {
-      // Small delay to ensure DOM is rendered
-      setTimeout(() => {
-        scrollToBottom();
-      }, 100);
+    if (applicantData?._id && messages.length > 0) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom();
+        });
+      });
     }
-  }, [messages.length, loading]);
+  }, [messages, applicantData?._id]);
 
   // Handle Escape key to close modal
   useEffect(() => {
@@ -274,6 +269,10 @@ Best regards,
       console.log("Storing initial applicant data:", selectedApplicant);
       initialApplicantRef.current = selectedApplicant;
       setApplicantData(selectedApplicant);
+      // Scroll to bottom when a new applicant is selected
+      setTimeout(() => {
+        scrollToBottom();
+      }, 200);
     }
   }, [selectedApplicant]);
 
@@ -362,7 +361,7 @@ Best regards,
 
       // Scroll to bottom after messages are loaded
       setTimeout(() => {
-        scrollToBottom(false); // Immediate scroll to latest message
+        scrollToBottom(); // Immediate scroll to latest message
       }, 200);
     }
   };
@@ -391,7 +390,6 @@ Best regards,
         // Don't add message to local state here - let Socket.IO handle it
         // But add a fallback in case Socket.IO fails
         if (!isConnected) {
-          console.log("Socket.IO not connected, adding message directly");
           setMessages((prev) => [...prev, data.message]);
         } else {
           // Add a timeout fallback in case Socket.IO event is delayed
@@ -509,7 +507,6 @@ Best regards,
         // Don't add message to local state here - let Socket.IO handle it
         // But add a fallback in case Socket.IO fails
         if (!isConnected) {
-          console.log("Socket.IO not connected, adding voice message directly");
           setMessages((prev) => [...prev, data.message]);
         } else {
           // Add a timeout fallback in case Socket.IO event is delayed
@@ -715,6 +712,12 @@ Best regards,
         activeChatId === applicantData._id
       ) {
         markMessagesAsRead(applicantData._id);
+      } else if (
+        message.senderType === "applicant" &&
+        (!isActivelyViewing || activeChatId !== applicantData._id)
+      ) {
+        // Show toast notification for new message if not actively viewing
+        toast.info("New message from applicant!");
       }
     };
 
@@ -874,7 +877,7 @@ Best regards,
         {/* Messages container */}
         <div className="flex-1 flex flex-col bg-white">
           <div
-            ref={messagesEndRef}
+            ref={messagesContainerRef}
             className="flex-1 p-6 space-y-6 overflow-y-auto"
           >
             {loading ? (

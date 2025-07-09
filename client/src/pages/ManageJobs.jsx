@@ -178,7 +178,9 @@ const ManageJobs = () => {
                     </td>
                     <td className="py-4 px-6 max-sm:hidden">
                       {job?.location
-                        ? `${job.location.town}, ${job.location.province}`
+                        ? job.location.district
+                          ? `${job.location.town}, ${job.location.district}`
+                          : job.location.town
                         : "No Location"}
                     </td>
                     <td className="py-4 px-6">

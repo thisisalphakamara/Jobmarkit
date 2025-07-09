@@ -1,4 +1,10 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, {
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useLayoutEffect,
+} from "react";
 import Navbar from "../components/Navbar";
 import { assets } from "../assets/assets";
 import moment from "moment";
@@ -33,6 +39,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
+import { FiFilter, FiX } from "react-icons/fi";
 
 const Applications = () => {
   const { user } = useUser();
@@ -58,13 +65,125 @@ const Applications = () => {
   const messagesEndRef = useRef(null);
   const [activeChatId, setActiveChatId] = useState(null);
   const fileInputRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    status: "all",
+    company: "",
+    jobTitle: "",
+    dateApplied: "all",
+    jobType: "all",
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [filteredApplications, setFilteredApplications] = useState([]);
 
   const context = useContext(AppContext);
-  const { backendUrl, userData, userApplications, fetchUserData } = context;
+  const {
+    backendUrl,
+    userData,
+    userApplications,
+    fetchUserData,
+    totalUnreadCount,
+    setTotalUnreadCount,
+  } = context;
 
   useEffect(() => {
     setUserApplicationsState(userApplications || []);
   }, [userApplications]);
+
+  // Apply filters to applications
+  useEffect(() => {
+    const applyFilters = () => {
+      let filtered = userApplicationsState;
+
+      // Filter by status
+      if (filters.status !== "all") {
+        filtered = filtered.filter(
+          (app) => app.status?.toLowerCase() === filters.status.toLowerCase()
+        );
+      }
+
+      // Filter by company name
+      if (filters.company) {
+        filtered = filtered.filter((app) => {
+          const companyName = getCompanyName(app.jobId).toLowerCase();
+          return companyName.includes(filters.company.toLowerCase());
+        });
+      }
+
+      // Filter by job title
+      if (filters.jobTitle) {
+        filtered = filtered.filter((app) => {
+          const title = app.jobId?.title?.toLowerCase() || "";
+          return title.includes(filters.jobTitle.toLowerCase());
+        });
+      }
+
+      // Filter by job type
+      if (filters.jobType !== "all") {
+        filtered = filtered.filter((app) => {
+          const jobType = getJobType(app).toLowerCase();
+          return jobType === filters.jobType.toLowerCase();
+        });
+      }
+
+      // Filter by date applied
+      if (filters.dateApplied !== "all") {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(
+          now.getTime() - 30 * 24 * 60 * 60 * 1000
+        );
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+        filtered = filtered.filter((app) => {
+          const appliedDate = new Date(app.createdAt);
+          switch (filters.dateApplied) {
+            case "today":
+              return appliedDate >= oneDayAgo;
+            case "week":
+              return appliedDate >= sevenDaysAgo;
+            case "month":
+              return appliedDate >= thirtyDaysAgo;
+            default:
+              return true;
+          }
+        });
+      }
+
+      setFilteredApplications(filtered);
+    };
+
+    applyFilters();
+  }, [userApplicationsState, filters]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      status: "all",
+      company: "",
+      jobTitle: "",
+      dateApplied: "all",
+      jobType: "all",
+    });
+  };
+
+  // Get unique job types for filter dropdown
+  const getUniqueJobTypes = () => {
+    return ["Full-time", "Part-time", "Contract", "Internship"];
+  };
+
+  // Get active filters count
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (filters.status !== "all") count++;
+    if (filters.company) count++;
+    if (filters.jobTitle) count++;
+    if (filters.dateApplied !== "all") count++;
+    if (filters.jobType !== "all") count++;
+    return count;
+  };
 
   // Handle Escape key to close messaging modal
   useEffect(() => {
@@ -142,6 +261,8 @@ const Applications = () => {
           ...prev,
           [selectedApplication._id]: (prev[selectedApplication._id] || 0) + 1,
         }));
+        // Show toast notification for new message if not actively viewing
+        toast.info("New message from recruiter!");
       } else if (
         message.senderType === "recruiter" &&
         activeChatId === selectedApplication._id
@@ -205,6 +326,35 @@ const Applications = () => {
     showMessagingModal,
     activeChatId,
   ]);
+
+  // Add this global useEffect after your other useEffects, outside the one that depends on selectedApplication
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMessageReceived = (message) => {
+      // Only show notification if message is from recruiter
+      if (message.senderType === "recruiter") {
+        // If the chat modal is not open for this application, show a toast
+        if (
+          !showMessagingModal ||
+          !selectedApplication ||
+          selectedApplication._id !== message.applicationId
+        ) {
+          toast.info("New message from recruiter!");
+          setUnreadCounts((prev) => ({
+            ...prev,
+            [message.applicationId]: (prev[message.applicationId] || 0) + 1,
+          }));
+        }
+      }
+    };
+
+    socket.on("message-received", handleMessageReceived);
+
+    return () => {
+      socket.off("message-received", handleMessageReceived);
+    };
+  }, [socket, showMessagingModal, selectedApplication]);
 
   // Handle typing indicators
   const handleTyping = () => {
@@ -380,34 +530,22 @@ const Applications = () => {
   }, [userApplicationsState, backendUrl]);
 
   // Auto-scroll to bottom when new messages arrive
-  const scrollToBottom = (smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: smooth ? "smooth" : "auto",
-      block: "end",
-    });
+  const scrollToBottom = () => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   };
 
   useEffect(() => {
-    // Use immediate scroll for new messages to avoid delay
-    const isNewMessage =
-      messages.length > 0 && messages[messages.length - 1]?.timestamp;
-    const isRecentMessage =
-      isNewMessage &&
-      new Date(messages[messages.length - 1].timestamp).getTime() >
-        Date.now() - 10000; // Within last 10 seconds
-
-    scrollToBottom(!isRecentMessage); // Smooth for old messages, immediate for new ones
-  }, [messages]);
-
-  // Scroll to bottom when modal is first opened
-  useEffect(() => {
     if (showMessagingModal && messages.length > 0) {
-      // Small delay to ensure DOM is rendered
-      setTimeout(() => {
-        scrollToBottom();
-      }, 100);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom();
+        });
+      });
     }
-  }, [showMessagingModal, messages.length]);
+  }, [messages, showMessagingModal]);
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -453,17 +591,21 @@ const Applications = () => {
 
   // Get status color based on application status
   const getStatusColor = (status) => {
-    switch (status) {
-      case "In Review":
+    switch (status?.toLowerCase()) {
+      case "pending":
         return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "Interviewing":
+      case "interview":
+      case "interviewing":
         return "bg-blue-100 text-blue-800 border-blue-200";
-      case "Offered":
+      case "accepted":
+      case "offered":
         return "bg-green-100 text-green-800 border-green-200";
-      case "Hired":
+      case "hired":
         return "bg-green-200 text-green-900 border-green-300 font-semibold";
-      case "Rejected":
+      case "rejected":
         return "bg-red-100 text-red-800 border-red-200";
+      case "in review":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
@@ -676,10 +818,33 @@ const Applications = () => {
 
   // Get unread message count for an application
   const getUnreadCount = (application) => {
-    // This would need to be implemented with a backend endpoint
-    // For now, return 0
-    return 0;
+    return unreadCounts[application._id] || 0;
   };
+
+  // Helper to get company name robustly
+  const getCompanyName = (jobId) =>
+    jobId?.companyId?.name ||
+    jobId?.companyName ||
+    jobId?.company ||
+    jobId?.name ||
+    "N/A";
+
+  // Helper to get job type robustly
+  const getJobType = (application) =>
+    application.jobId?.workType ||
+    application.jobId?.type ||
+    application.type ||
+    application.jobType ||
+    "N/A";
+
+  useEffect(() => {
+    // Sum all unread counts
+    const total = Object.values(unreadCounts).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+    setTotalUnreadCount(total);
+  }, [unreadCounts, setTotalUnreadCount]);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -702,11 +867,11 @@ const Applications = () => {
           animate="visible"
           variants={cardVariants}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8"
+          className="bg-gray-50 rounded-xl shadow border border-gray-200 p-6 mb-8"
         >
           <div className="flex items-center mb-4">
-            <FileText className="w-6 h-6 text-blue-600 mr-2" />
-            <h2 className="text-xl font-semibold text-gray-800">Your Resume</h2>
+            <FileText className="w-6 h-6 text-gray-700 mr-2" />
+            <h2 className="text-xl font-semibold text-gray-700">Your Resume</h2>
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
@@ -714,13 +879,13 @@ const Applications = () => {
               <div className="flex flex-wrap gap-3 w-full">
                 <button
                   type="button"
-                  className="flex items-center cursor-pointer bg-white border border-blue-200 rounded-lg px-4 py-3 hover:bg-blue-50 transition-colors duration-200 group"
+                  className="flex items-center cursor-pointer bg-white border border-gray-300 rounded-lg px-4 py-3 hover:bg-gray-100 transition-colors duration-200 group"
                   onClick={() =>
                     fileInputRef.current && fileInputRef.current.click()
                   }
                 >
-                  <Download className="w-5 h-5 text-blue-600 mr-2 group-hover:scale-110 transition-transform duration-200" />
-                  <span className="text-blue-600 font-medium">
+                  <Download className="w-5 h-5 text-gray-700 mr-2 group-hover:scale-110 transition-transform duration-200" />
+                  <span className="text-gray-700 font-medium">
                     {resume ? resume.name : "Select Resume"}
                   </span>
                 </button>
@@ -734,7 +899,7 @@ const Applications = () => {
                 />
                 <button
                   onClick={updateResume}
-                  className="bg-blue-600 text-white font-medium rounded-lg px-6 py-3 hover:bg-blue-700 transition-colors duration-200 flex items-center"
+                  className="bg-gray-700 text-white font-medium rounded-lg px-6 py-3 hover:bg-gray-800 transition-colors duration-200 flex items-center"
                 >
                   <span>Save Resume</span>
                 </button>
@@ -742,19 +907,19 @@ const Applications = () => {
             ) : (
               <div className="flex flex-wrap gap-3 w-full">
                 <a
-                  className="flex items-center bg-blue-50 text-blue-600 font-medium px-5 py-3 rounded-lg hover:bg-blue-100 transition-colors duration-200"
+                  className="flex items-center bg-gray-100 text-gray-700 font-medium px-5 py-3 rounded-lg hover:bg-gray-200 transition-colors duration-200"
                   href={userData?.resume || "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <File className="w-5 h-5 mr-2" />
+                  <File className="w-5 h-5 mr-2 text-gray-700" />
                   View Resume
                 </a>
                 <button
                   onClick={() => setIsEdit(true)}
-                  className="flex items-center bg-white text-gray-600 font-medium border border-gray-200 px-5 py-3 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  className="flex items-center bg-white text-gray-700 font-medium border border-gray-300 px-5 py-3 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                 >
-                  <Edit className="w-4 h-4 mr-2" />
+                  <Edit className="w-4 h-4 mr-2 text-gray-700" />
                   Update Resume
                 </button>
               </div>
@@ -762,47 +927,290 @@ const Applications = () => {
           </div>
         </motion.div>
 
-        <section>
-          <AnimatePresence>
-            {userApplicationsState.length > 0 ? (
-              <motion.div
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}
-              >
-                {userApplicationsState.map((application, index) => (
-                  <motion.div
-                    key={application._id}
-                    className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                      transition: { delay: index * 0.05 },
-                    }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    layout
+        {/* Filter Controls */}
+        {userApplicationsState.length > 0 && (
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={cardVariants}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="bg-white rounded-xl shadow border border-gray-200 p-6 mb-8"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-semibold text-gray-700">
+                  Filter Applications
+                </h2>
+                {getActiveFiltersCount() > 0 && (
+                  <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
+                    {getActiveFiltersCount()} active filters
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <FiFilter className="w-4 h-4" />
+                  {showFilters ? "Hide Filters" : "Show Filters"}
+                </button>
+                {getActiveFiltersCount() > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   >
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-200">
-                            <img
-                              src={application.jobId?.companyId?.image}
-                              alt={application.jobId?.companyId?.name}
-                              className="w-10 h-10 object-contain"
-                            />
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-lg text-gray-900">
-                              {application.jobId?.title}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              {application.jobId?.companyId?.name}
-                            </p>
-                          </div>
-                        </div>
+                    Clear All
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {showFilters && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* Status Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status
+                  </label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) =>
+                      setFilters({ ...filters, status: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="interview">Interview</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+
+                {/* Company Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Company
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Search company..."
+                    value={filters.company}
+                    onChange={(e) =>
+                      setFilters({ ...filters, company: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Job Title Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Job Title
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Search job title..."
+                    value={filters.jobTitle}
+                    onChange={(e) =>
+                      setFilters({ ...filters, jobTitle: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Job Type Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Job Type
+                  </label>
+                  <select
+                    value={filters.jobType}
+                    onChange={(e) =>
+                      setFilters({ ...filters, jobType: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  >
+                    <option value="all">All Types</option>
+                    {getUniqueJobTypes().map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date Applied Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date Applied
+                  </label>
+                  <select
+                    value={filters.dateApplied}
+                    onChange={(e) =>
+                      setFilters({ ...filters, dateApplied: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Active Filters Display */}
+            {getActiveFiltersCount() > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex flex-wrap gap-2">
+                  {filters.status !== "all" && (
+                    <span className="inline-flex items-center gap-2 bg-gray-100 border border-gray-200 px-3 py-1 rounded-full text-sm text-gray-700">
+                      Status: {filters.status}
+                      <button
+                        onClick={() =>
+                          setFilters({ ...filters, status: "all" })
+                        }
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <FiX className="h-4 w-4" />
+                      </button>
+                    </span>
+                  )}
+                  {filters.company && (
+                    <span className="inline-flex items-center gap-2 bg-gray-100 border border-gray-200 px-3 py-1 rounded-full text-sm text-gray-700">
+                      Company: {filters.company}
+                      <button
+                        onClick={() => setFilters({ ...filters, company: "" })}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <FiX className="h-4 w-4" />
+                      </button>
+                    </span>
+                  )}
+                  {filters.jobTitle && (
+                    <span className="inline-flex items-center gap-2 bg-gray-100 border border-gray-200 px-3 py-1 rounded-full text-sm text-gray-700">
+                      Job: {filters.jobTitle}
+                      <button
+                        onClick={() => setFilters({ ...filters, jobTitle: "" })}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <FiX className="h-4 w-4" />
+                      </button>
+                    </span>
+                  )}
+                  {filters.jobType !== "all" && (
+                    <span className="inline-flex items-center gap-2 bg-gray-100 border border-gray-200 px-3 py-1 rounded-full text-sm text-gray-700">
+                      Type: {filters.jobType}
+                      <button
+                        onClick={() =>
+                          setFilters({ ...filters, jobType: "all" })
+                        }
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <FiX className="h-4 w-4" />
+                      </button>
+                    </span>
+                  )}
+                  {filters.dateApplied !== "all" && (
+                    <span className="inline-flex items-center gap-2 bg-gray-100 border border-gray-200 px-3 py-1 rounded-full text-sm text-gray-700">
+                      Date: {filters.dateApplied}
+                      <button
+                        onClick={() =>
+                          setFilters({ ...filters, dateApplied: "all" })
+                        }
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <FiX className="h-4 w-4" />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        <section>
+          {filteredApplications.length > 0 ? (
+            <div className="overflow-x-auto w-full">
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-gray-600">
+                  Showing {filteredApplications.length} of{" "}
+                  {userApplicationsState.length} applications
+                </p>
+              </div>
+              <table className="w-full text-xs">
+                <thead className="bg-gray-700 text-white">
+                  <tr>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      #
+                    </th>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      Job Title
+                    </th>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      Company
+                    </th>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      Location
+                    </th>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      Salary
+                    </th>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      Type
+                    </th>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      Date Applied
+                    </th>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      Status
+                    </th>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      Message
+                    </th>
+                    <th className="py-3 px-3 text-left font-semibold text-sm">
+                      Delete
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredApplications.map((application, index) => (
+                    <tr
+                      key={application._id}
+                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="py-3 px-3 text-sm text-gray-600">
+                        {index + 1}
+                      </td>
+                      <td className="py-3 px-3 font-medium text-gray-800">
+                        {application.jobId?.title || "Untitled Job"}
+                      </td>
+                      <td className="py-3 px-3 text-gray-700">
+                        {getCompanyName(application.jobId)}
+                      </td>
+                      <td className="py-3 px-3 text-gray-700">
+                        {application.jobId?.location
+                          ? `${application.jobId.location.town || ""}, ${
+                              application.jobId.location.district || ""
+                            }`
+                          : "No Location"}
+                      </td>
+                      <td className="py-3 px-3 text-gray-700">
+                        {application.jobId?.salary !== undefined &&
+                        application.jobId?.salary !== null
+                          ? `Le ${application.jobId.salary.toLocaleString()}`
+                          : "N/A"}
+                      </td>
+                      <td className="py-3 px-3 text-gray-700">
+                        {getJobType(application)}
+                      </td>
+                      <td className="py-3 px-3 text-gray-700">
+                        {moment(application.createdAt).format("MMMM Do, YYYY")}
+                      </td>
+                      <td className="py-3 px-3">
                         <span
                           className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(
                             application.status
@@ -810,81 +1218,72 @@ const Applications = () => {
                         >
                           {application.status}
                         </span>
-                      </div>
-
-                      <div className="space-y-3 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <MapPin size={14} className="text-gray-400" />
-                          <span>
-                            {application.jobId?.location
-                              ? `${application.jobId.location.town}, ${application.jobId.location.district}, ${application.jobId.location.province}`
-                              : ""}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Briefcase size={14} className="text-gray-400" />
-                          <span>{application.jobId?.type}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock size={14} className="text-gray-400" />
-                          <span>
-                            Applied on{" "}
-                            {moment(application.createdAt).format(
-                              "MMMM Do, YYYY"
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="px-6 py-4 bg-gray-50/70 border-t border-gray-100 flex items-center justify-between">
-                      <button
-                        onClick={() => openMessagingModal(application)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-sm"
-                      >
-                        <MessageSquare size={16} />
-                        Messages
-                        {getUnreadCount(application) > 0 && (
-                          <span className="w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
-                            {getUnreadCount(application)}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => deleteApplication(application._id)}
-                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-colors"
-                        aria-label="Delete application"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                className="text-center py-20"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Briefcase size={60} className="mx-auto text-gray-300 mb-4" />
-                <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-                  No Applications Yet
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  You haven't applied for any jobs yet. Start exploring and find
-                  your next opportunity!
-                </p>
+                      </td>
+                      <td className="py-3 px-3">
+                        <button
+                          onClick={() => openMessagingModal(application)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200"
+                        >
+                          <MessageSquare size={14} />
+                          Message
+                          {getUnreadCount(application) > 0 && (
+                            <span className="w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                              {getUnreadCount(application)}
+                            </span>
+                          )}
+                        </button>
+                      </td>
+                      <td className="py-3 px-3">
+                        <button
+                          onClick={() => deleteApplication(application._id)}
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                          aria-label="Delete application"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <motion.div
+              className="text-center py-20"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Briefcase size={60} className="mx-auto text-gray-300 mb-4" />
+              <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+                {userApplicationsState.length > 0
+                  ? "No Applications Match Your Filters"
+                  : "No Applications Yet"}
+              </h2>
+              <p className="text-gray-600 mb-6">
+                {userApplicationsState.length > 0
+                  ? "Try adjusting your filters to see more applications."
+                  : "You haven't applied for any jobs yet. Start exploring and find your next opportunity!"}
+              </p>
+              {userApplicationsState.length === 0 && (
                 <a
                   href="/"
                   className="px-6 py-3 bg-gray-700 text-white font-medium rounded-lg shadow-md hover:bg-gray-800 transition-colors"
                 >
                   Browse Jobs
                 </a>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              )}
+              {userApplicationsState.length > 0 &&
+                getActiveFiltersCount() > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-6 py-3 bg-gray-700 text-white font-medium rounded-lg shadow-md hover:bg-gray-800 transition-colors"
+                  >
+                    Clear All Filters
+                  </button>
+                )}
+            </motion.div>
+          )}
         </section>
 
         <AnimatePresence>
@@ -914,12 +1313,35 @@ const Applications = () => {
                 {/* Header */}
                 <header className="flex-shrink-0 bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center border border-gray-200">
-                      <img
-                        src={selectedApplication.jobId?.companyId?.image}
-                        alt={selectedApplication.jobId?.companyId?.name}
-                        className="w-8 h-8 object-contain"
-                      />
+                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center border border-gray-200 overflow-hidden">
+                      {selectedApplication.jobId?.companyId?.image ? (
+                        <img
+                          src={selectedApplication.jobId.companyId.image}
+                          alt={
+                            selectedApplication.jobId.companyId.name ||
+                            "Company"
+                          }
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                            e.target.nextSibling.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className={`w-full h-full flex items-center justify-center ${
+                          !selectedApplication.jobId?.companyId?.image
+                            ? ""
+                            : "hidden"
+                        }`}
+                        style={{
+                          display: !selectedApplication.jobId?.companyId?.image
+                            ? "flex"
+                            : "none",
+                        }}
+                      >
+                        <Building size={20} className="text-gray-500" />
+                      </div>
                     </div>
                     <div>
                       <h2 className="text-lg font-bold text-gray-900">
@@ -948,7 +1370,7 @@ const Applications = () => {
                   {/* Messages container */}
                   <div className="flex-1 flex flex-col bg-white">
                     <div
-                      ref={messagesEndRef}
+                      ref={messagesContainerRef}
                       className="flex-1 p-6 space-y-6 overflow-y-auto"
                     >
                       {loading ? (

@@ -141,7 +141,7 @@ const AppRoutes = () => {
           >
             <Route index element={<DashboardHome />} />
             <Route path="add-job" element={<AddJob />} />
-            <Route path="manage-job" element={<ManageJobs />} />
+            <Route path="manage-jobs" element={<ManageJobs />} />
             <Route path="view-applications" element={<ViewApplications />} />
             <Route path="edit-job/:id" element={<EditJob />} />
           </Route>

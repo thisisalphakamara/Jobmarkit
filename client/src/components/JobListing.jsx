@@ -34,8 +34,10 @@ import { toast } from "react-toastify";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-react";
 
-const mainCategories = Object.keys(jobCategories);
-mainCategories.unshift("All Categories"); // Add "All Categories" to the beginning
+const mainCategories = [
+  "All Categories",
+  ...jobCategories.map((cat) => cat.label),
+];
 
 // Add this array for location filtering (matches AddJob.jsx districts)
 const sierraLeoneLocations = [
@@ -384,9 +386,11 @@ const JobListing = () => {
           );
         }
 
+        // Use new structure: job.mainCategory and job.category are strings
         const jobMatchesMain = job.mainCategory === selectedMainCategory;
         if (!jobMatchesMain) return false;
 
+        // For subcategory, match label
         const jobMatchesSub =
           selectedSubCategory === "All" || job.category === selectedSubCategory;
         return jobMatchesSub;
@@ -957,7 +961,7 @@ const JobListing = () => {
       <div className="relative z-0 container mx-auto flex flex-col lg:flex-row max-lg:space-y-6 py-8 px-4 lg:px-8">
         {/* ENHANCED FILTER SIDEBAR */}
         <motion.div
-          className="w-full lg:w-1/4 bg-white rounded-2xl shadow-lg lg:sticky lg:top-24 lg:h-[calc(100vh-120px)] lg:overflow-y-auto border border-gray-100"
+          className="w-full lg:w-1/4 bg-white rounded-2xl shadow-lg lg:sticky lg:top-24 h-fit lg:overflow-y-auto border border-gray-100"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
@@ -1192,17 +1196,18 @@ const JobListing = () => {
                           Main Category
                         </label>
                         <select
+                          className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-gray-700 focus:border-gray-700"
                           value={selectedMainCategory}
                           onChange={(e) => {
                             setSelectedMainCategory(e.target.value);
-                            setSelectedSubCategory("All"); // Reset sub-category
-                            setOtherCategoryFilter(""); // Reset other filter
+                            setSelectedSubCategory("All");
+                            setOtherCategoryFilter("");
                           }}
-                          className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-gray-700 focus:border-gray-700"
                         >
-                          {mainCategories.map((cat) => (
-                            <option key={cat} value={cat}>
-                              {cat}
+                          <option value="All Categories">All Categories</option>
+                          {jobCategories.map((cat) => (
+                            <option key={cat.label} value={cat.label}>
+                              {cat.icon} {cat.label}
                             </option>
                           ))}
                         </select>
@@ -1215,20 +1220,25 @@ const JobListing = () => {
                               Sub-category
                             </label>
                             <select
+                              className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-gray-700 focus:border-gray-700"
                               value={selectedSubCategory}
                               onChange={(e) =>
                                 setSelectedSubCategory(e.target.value)
                               }
-                              className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-gray-700 focus:border-gray-700"
                             >
                               <option value="All">All Sub-categories</option>
-                              {jobCategories[selectedMainCategory]?.map(
-                                (subCat) => (
-                                  <option key={subCat} value={subCat}>
-                                    {subCat}
-                                  </option>
+                              {jobCategories
+                                .find(
+                                  (cat) => cat.label === selectedMainCategory
                                 )
-                              )}
+                                ?.subcategories.map((subCat) => (
+                                  <option
+                                    key={subCat.label}
+                                    value={subCat.label}
+                                  >
+                                    {subCat.icon} {subCat.label}
+                                  </option>
+                                ))}
                             </select>
                           </div>
                         )}
@@ -1569,7 +1579,7 @@ const JobListing = () => {
                   className="font-bold text-3xl md:text-4xl text-gray-800 mb-2"
                   id="job-list"
                 >
-                  Latest Jobs in Sierra Leone 🇸🇱
+                  Latest Jobs in Sierra Leone
                 </h3>
                 <p className="text-gray-600">
                   Find your dream job from top companies across Sierra Leone

@@ -44,7 +44,7 @@ const provinceOptions = [
   "Western Area",
 ];
 
-const mainCategories = Object.keys(jobCategories);
+const mainCategories = jobCategories.map((cat) => cat.label);
 
 // Prepare capital towns for dropdown (add Lunsar, Masiaka, Lungi for Port Loko)
 const capitalTowns = [
@@ -63,9 +63,16 @@ const AddJob = () => {
 
   // New Category States
   const [mainCategory, setMainCategory] = useState(mainCategories[0]);
-  const [subCategory, setSubCategory] = useState(
-    jobCategories[mainCategories[0]][0]
-  );
+  const [subCategory, setSubCategory] = useState(() => {
+    const firstCat = jobCategories.find(
+      (cat) => cat.label === mainCategories[0]
+    );
+    return firstCat &&
+      firstCat.subcategories &&
+      firstCat.subcategories.length > 0
+      ? firstCat.subcategories[0].label
+      : "";
+  });
   const [otherCategory, setOtherCategory] = useState(""); // For custom category input
 
   const [level, setLevel] = useState("Junior Level");
@@ -107,14 +114,17 @@ const AddJob = () => {
 
   // Update sub-category options when main category changes
   useEffect(() => {
-    // If the new main category is not "Other" and has subcategories, set the first one as default.
-    if (mainCategory !== "Other" && jobCategories[mainCategory]?.length > 0) {
-      setSubCategory(jobCategories[mainCategory][0]);
+    const selectedMainCategoryObj = jobCategories.find(
+      (cat) => cat.label === mainCategory
+    );
+    if (
+      mainCategory !== "Other" &&
+      selectedMainCategoryObj?.subcategories?.length > 0
+    ) {
+      setSubCategory(selectedMainCategoryObj.subcategories[0].label);
     } else {
-      // If "Other" or an empty category is selected, clear the subcategory.
       setSubCategory("");
     }
-    // Clear the "Other" input when main category changes.
     setOtherCategory("");
   }, [mainCategory]);
 
@@ -230,7 +240,10 @@ const AddJob = () => {
         setDistrict("Western Area Urban");
         setTown("");
         setMainCategory(mainCategories[0]);
-        setSubCategory(jobCategories[mainCategories[0]][0]);
+        setSubCategory(
+          jobCategories.find((cat) => cat.label === mainCategories[0])
+            ?.subcategories[0]?.label || ""
+        );
         setOtherCategory("");
         setWorkType("Full-time");
         setWorkSetup("On-site");
@@ -621,11 +634,13 @@ const AddJob = () => {
                       onChange={(e) => setSubCategory(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none bg-white transition-all duration-200"
                     >
-                      {jobCategories[mainCategory]?.map((subCat) => (
-                        <option key={subCat} value={subCat}>
-                          {subCat}
-                        </option>
-                      ))}
+                      {jobCategories
+                        .find((cat) => cat.label === mainCategory)
+                        ?.subcategories?.map((subCat) => (
+                          <option key={subCat.label} value={subCat.label}>
+                            {subCat.icon} {subCat.label}
+                          </option>
+                        ))}
                     </select>
                   ) : (
                     <input

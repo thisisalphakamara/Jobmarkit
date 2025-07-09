@@ -11,13 +11,15 @@ import {
   Star,
 } from "lucide-react";
 import Loading from "../components/Loading";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import SkeletonLoader from "../components/SkeletonLoader";
 
-const StatCard = ({ title, value, icon, color }) => {
+const StatCard = ({ title, value, icon, color, onClick, style }) => {
   return (
     <div
       className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4`}
+      onClick={onClick}
+      style={style}
     >
       <div
         className={`w-12 h-12 rounded-full flex items-center justify-center ${color}`}
@@ -33,7 +35,9 @@ const StatCard = ({ title, value, icon, color }) => {
 };
 
 const DashboardHome = () => {
-  const { companyToken, backendUrl, jobs } = useContext(AppContext);
+  const { companyToken, backendUrl, jobs, totalUnreadCount } =
+    useContext(AppContext);
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     activeJobs: 0,
     newApplications: 0,
@@ -92,11 +96,7 @@ const DashboardHome = () => {
           ).length;
 
           const upcomingInterviewsCount = applications.filter((app) => {
-            if (!app.interviewScheduled || !app.interviewDate) return false;
-            const interviewDate = new Date(app.interviewDate);
-            const sevenDaysFromNow = new Date();
-            sevenDaysFromNow.setDate(today.getDate() + 7);
-            return interviewDate >= today && interviewDate <= sevenDaysFromNow;
+            return app.status && app.status.toLowerCase() === "interview";
           }).length;
 
           // 3. Calculate unread messages
@@ -201,24 +201,44 @@ const DashboardHome = () => {
           value={stats.activeJobs}
           icon={<Briefcase size={24} className="text-blue-500" />}
           color="bg-blue-100"
+          onClick={() => navigate("/dashboard/manage-jobs")}
+          style={{ cursor: "pointer" }}
         />
         <StatCard
           title="New Applications (Today)"
           value={stats.newApplications}
           icon={<UserPlus size={24} className="text-emerald-500" />}
           color="bg-emerald-100"
+          onClick={() =>
+            navigate("/dashboard/view-applications", {
+              state: { highlightToday: true },
+            })
+          }
+          style={{ cursor: "pointer" }}
         />
         <StatCard
           title="Unread Messages"
-          value={stats.unreadMessages}
+          value={totalUnreadCount}
           icon={<MessageSquare size={24} className="text-red-500" />}
           color="bg-red-100"
+          onClick={() =>
+            navigate("/dashboard/view-applications", {
+              state: { sortUnreadTop: true },
+            })
+          }
+          style={{ cursor: "pointer" }}
         />
         <StatCard
-          title="Upcoming Interviews"
+          title="Upcoming Interviews (Today)"
           value={stats.upcomingInterviews}
           icon={<Calendar size={24} className="text-amber-500" />}
           color="bg-amber-100"
+          onClick={() =>
+            navigate("/dashboard/view-applications", {
+              state: { showInterviewsToday: true },
+            })
+          }
+          style={{ cursor: "pointer" }}
         />
       </div>
 

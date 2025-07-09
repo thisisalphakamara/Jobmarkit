@@ -33,6 +33,7 @@ import {
   Move,
   MessageSquare,
 } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 const ViewApplications = () => {
   const { backendUrl, companyToken, jobs } = useContext(AppContext);
@@ -56,6 +57,11 @@ const ViewApplications = () => {
     useState(null);
   const [unreadMessageCounts, setUnreadMessageCounts] = useState({});
   const menuRef = useRef(null);
+
+  const location = useLocation();
+  const sortUnreadTop = location.state?.sortUnreadTop;
+  const highlightToday = location.state?.highlightToday;
+  const showInterviewsToday = location.state?.showInterviewsToday;
 
   // Kanban stages configuration
   const kanbanStages = [
@@ -93,15 +99,18 @@ const ViewApplications = () => {
     },
   ];
 
-  // Map application status to kanban stages
+  // 1. Update statusMap and getKanbanStage to only use 'pending', 'accepted', 'rejected'
+  const statusMap = {
+    applied: "pending",
+    accepted: "accepted",
+    rejected: "rejected",
+  };
+
   const getKanbanStage = (status) => {
     switch (status?.toLowerCase()) {
       case "pending":
         return "applied";
-      case "interview":
-        return "interview";
       case "accepted":
-      case "hired":
         return "accepted";
       case "rejected":
         return "rejected";
@@ -1090,7 +1099,7 @@ const ViewApplications = () => {
     fetchCompanyJobApplications();
   }, [companyToken, backendUrl]); // Dependency on companyToken ensures it refetches if token changes
 
-  // Function to change Job application status
+  // 2. Update changeJobApplicationStatus to update local applicants state instantly
   const changeJobApplicationStatus = async (id, status, applicant) => {
     try {
       const { data } = await axios.post(
@@ -1100,6 +1109,10 @@ const ViewApplications = () => {
       );
 
       if (data.success) {
+        // Update local applicants state instantly
+        setApplicants((prev) =>
+          prev.map((a) => (a._id === id ? { ...a, status: status } : a))
+        );
         // Send email notification if applicant email is available
         let applicantEmail = "";
         let applicantName = "";
@@ -1119,7 +1132,6 @@ const ViewApplications = () => {
             console.log("Email notification failed:", emailErr);
           }
         }
-
         // Provide specific feedback based on status
         let message = "";
         switch (status.toLowerCase()) {
@@ -1129,21 +1141,16 @@ const ViewApplications = () => {
           case "rejected":
             message = `❌ ${applicantName || "Candidate"} has been rejected.`;
             break;
-          case "interview":
-            message = `👥 ${applicantName || "Candidate"} moved to interview.`;
-            break;
           default:
             message = `Application status updated to ${status}`;
         }
-
         toast.success(message);
-        fetchCompanyJobApplications();
       } else {
         toast.error(data.message || "Failed to update application status");
       }
     } catch (error) {
       console.error("Error updating status:", error);
-      toast.error("Failed to update application status. Please try again.");
+      // No error toast here; only log the error
     }
   };
 
@@ -1279,14 +1286,6 @@ const ViewApplications = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-  // Add this before filteredApplicants
-  const statusMap = {
-    applied: "pending",
-    interview: "interview",
-    accepted: "accepted",
-    rejected: "rejected",
-  };
 
   // Filtered and sorted applicants
   const filteredApplicants = applicants
@@ -1464,6 +1463,30 @@ const ViewApplications = () => {
 
   if (loading) {
     return <Loading />;
+  }
+
+  let sortedApplicants = [...filteredApplicants];
+  if (sortUnreadTop) {
+    sortedApplicants.sort((a, b) => {
+      const unreadA = unreadMessageCounts[a._id] || 0;
+      const unreadB = unreadMessageCounts[b._id] || 0;
+      if (unreadA === unreadB) return 0;
+      return unreadB - unreadA;
+    });
+  }
+  if (highlightToday) {
+    sortedApplicants = sortedApplicants.filter(
+      (a) => new Date(a.createdAt).toDateString() === new Date().toDateString()
+    );
+  }
+  if (showInterviewsToday) {
+    sortedApplicants = sortedApplicants.filter(
+      (a) =>
+        a.status &&
+        a.status.toLowerCase() === "interview" &&
+        a.interviewDate &&
+        new Date(a.interviewDate).toDateString() === new Date().toDateString()
+    );
   }
 
   return (
@@ -1650,13 +1673,19 @@ const ViewApplications = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredApplicants.map((applicant, index) => (
+                      sortedApplicants.map((applicant, index) => (
                         <motion.tr
                           key={applicant._id || index}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ duration: 0.3, delay: index * 0.05 }}
-                          className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                          className={
+                            highlightToday || showInterviewsToday
+                              ? ""
+                              : unreadMessageCounts[applicant._id] > 0
+                              ? "bg-gray-100"
+                              : ""
+                          }
                         >
                           <td className="py-3 px-3 text-sm text-gray-600">
                             {index + 1}
@@ -1767,8 +1796,10 @@ const ViewApplications = () => {
                           </td>
                           <td className="py-3 px-3 relative">
                             {applicant.status &&
-                            applicant.status.toLowerCase().trim() ===
-                              "pending" ? (
+                            (applicant.status.toLowerCase().trim() ===
+                              "pending" ||
+                              applicant.status.toLowerCase().trim() ===
+                                "interview") ? (
                               <div className="relative">
                                 <button
                                   onClick={() =>
@@ -1778,7 +1809,10 @@ const ViewApplications = () => {
                                   }
                                   className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors flex items-center gap-1 border border-gray-200"
                                 >
-                                  <span>Pending</span>
+                                  <span>
+                                    {applicant.status.charAt(0).toUpperCase() +
+                                      applicant.status.slice(1)}
+                                  </span>
                                   <MoreHorizontal size={14} />
                                 </button>
                                 <AnimatePresence>
@@ -1791,20 +1825,6 @@ const ViewApplications = () => {
                                       transition={{ duration: 0.2 }}
                                       className="absolute right-0 top-full mt-1 z-10 w-48 bg-white border border-gray-100 rounded-lg shadow-lg overflow-hidden"
                                     >
-                                      <button
-                                        onClick={() => {
-                                          changeJobApplicationStatus(
-                                            applicant._id,
-                                            "interview",
-                                            applicant
-                                          );
-                                          setActiveDropdown(null);
-                                        }}
-                                        className="w-full px-4 py-3 text-left text-sm font-medium text-gray-600 hover:bg-gray-100 flex items-center gap-2 transition-colors"
-                                      >
-                                        <Calendar size={16} />
-                                        Schedule Interview
-                                      </button>
                                       <button
                                         onClick={() => {
                                           changeJobApplicationStatus(
@@ -1823,7 +1843,7 @@ const ViewApplications = () => {
                                         onClick={() => {
                                           changeJobApplicationStatus(
                                             applicant._id,
-                                            "Rejected",
+                                            "rejected",
                                             applicant
                                           );
                                           setActiveDropdown(null);
