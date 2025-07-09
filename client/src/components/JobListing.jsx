@@ -504,16 +504,27 @@ const JobListing = () => {
         .filter(matchesWorkSetup);
 
       // Sorting logic
-      if (sortBy === "Salary: Low to High") {
-        filtered.sort((a, b) => a.salary - b.salary);
-      } else if (sortBy === "Salary: High to Low") {
-        filtered.sort((a, b) => b.salary - a.salary);
-      } else if (sortBy === "Most Relevant") {
-        // Placeholder for relevance logic, for now sort by date
-        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+      if (sortBy === "Highest Salary") {
+        filtered.sort((a, b) => (b.salary || 0) - (a.salary || 0));
+      } else if (sortBy === "Most Popular") {
+        // Sort by number of applications (if available) or by date as fallback
+        filtered.sort((a, b) => {
+          const aApplications = a.applicationCount || 0;
+          const bApplications = b.applicationCount || 0;
+          if (aApplications !== bApplications) {
+            return bApplications - aApplications;
+          }
+          // If same popularity, sort by date
+          return (
+            new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
+          );
+        });
       } else {
         // Default: Most Recent
-        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+        filtered.sort(
+          (a, b) =>
+            new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
+        );
       }
 
       setFilteredJobs(filtered);

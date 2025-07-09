@@ -399,7 +399,7 @@ const ApplyJob = () => {
                     disabled={isAlreadyApplied}
                     className={`w-full md:w-auto px-8 py-4 rounded-lg font-semibold text-lg shadow-md transition-all ${
                       isAlreadyApplied
-                        ? "bg-green-600 text-white flex items-center cursor-not-allowed"
+                        ? "bg-gray-600 text-white flex items-center cursor-not-allowed"
                         : "bg-gray-800 text-white hover:bg-gray-700"
                     }`}
                   >
