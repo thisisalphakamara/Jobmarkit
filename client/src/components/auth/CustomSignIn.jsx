@@ -3,7 +3,7 @@ import { useSignIn } from "@clerk/clerk-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
-import { User, Mail, Lock, Eye, EyeOff, X, Github } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, X, Github, Zap } from "lucide-react";
 
 const CustomSignIn = ({ onClose, onSwitchToSignUp }) => {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -119,7 +119,7 @@ const CustomSignIn = ({ onClose, onSwitchToSignUp }) => {
           {/* Floating avatar container */}
           <div className="absolute -bottom-10 flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-lg p-1">
             <div className="flex items-center justify-center w-full h-full bg-gray-700 rounded-full">
-              <User size={28} className="text-white" />
+              <Zap size={28} className="text-white" />
             </div>
           </div>
         </div>

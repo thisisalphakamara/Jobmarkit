@@ -15,6 +15,7 @@ import {
   Briefcase,
   Github,
   Linkedin,
+  Zap,
 } from "lucide-react";
 
 const CustomSignUp = ({ onClose, onSwitchToSignIn }) => {
@@ -429,7 +430,7 @@ const CustomSignUp = ({ onClose, onSwitchToSignIn }) => {
           {/* Floating avatar container */}
           <div className="absolute -bottom-10 flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-lg p-1">
             <div className="flex items-center justify-center w-full h-full bg-gray-700 rounded-full">
-              <User size={28} className="text-white" />
+              <Zap size={28} className="text-white" />
             </div>
           </div>
         </div>
