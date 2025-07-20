@@ -67,7 +67,7 @@ const Navbar = ({
           <div className="bg-gray-700 p-2 rounded-lg group-hover:shadow-gray-700/30 transition-all duration-300">
             <Zap size={24} className="text-white" />
           </div>
-          <span className="text-2xl font-bold text-gray-800">Jobmarkitsl</span>
+          <span className="text-2xl font-bold text-gray-800">Jobmarkit</span>
         </div>
 
         {/* Hamburger menu for mobile */}
