@@ -18,12 +18,15 @@ const Footer = () => {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
+  // Use full backend URL in production, proxy in development
+  const API_BASE = import.meta.env.PROD ? "https://jobmarkit.onrender.com" : "";
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     if (email) {
       try {
-        const res = await fetch("/api/subscribe", {
+        const res = await fetch(`${API_BASE}/api/subscribe`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
