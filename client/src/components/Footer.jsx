@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   FiMapPin,
@@ -10,20 +10,35 @@ import {
   FiShield,
   FiCheckCircle,
   FiHeart,
-  FiArrowRight,
 } from "react-icons/fi";
 import { Zap } from "lucide-react";
 
 const Footer = () => {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     if (email) {
-      setSubmitted(true);
-      setTimeout(() => setSubmitted(false), 3000);
-      setEmail("");
+      try {
+        const res = await fetch("/api/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setSubmitted(true);
+          setTimeout(() => setSubmitted(false), 3000);
+          setEmail("");
+        } else {
+          setError(data.message || "Failed to subscribe.");
+        }
+      } catch {
+        setError("Network error. Please try again.");
+      }
     }
   };
 
@@ -43,8 +58,8 @@ const Footer = () => {
                 <p className="text-gray-600 text-lg leading-relaxed">
                   Be among the first to discover job opportunities in Sierra
                   Leone. Get early access to new features, career insights, and
-                  exclusive resources as we build Sierra Leone's premier job
-                  portal together.
+                  exclusive resources as we build Sierra Leone&apos;s premier
+                  job portal together.
                 </p>
               </div>
 
@@ -61,11 +76,14 @@ const Footer = () => {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`w-full py-4 px-6 rounded-xl font-semibold text-white text-lg transition-all duration-300 ${
-                      submitted
-                        ? "bg-green-500"
-                        : "bg-gray-700 hover:bg-gray-800"
-                    }`}
+                    className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-300
+                      ${
+                        submitted
+                          ? "bg-gray-400 text-gray-800 cursor-default"
+                          : "bg-gray-700 text-white hover:bg-gray-800"
+                      }
+                    `}
+                    disabled={submitted}
                   >
                     {submitted ? (
                       <span className="flex items-center justify-center gap-2">
@@ -79,6 +97,11 @@ const Footer = () => {
                       </span>
                     )}
                   </motion.button>
+                  {error && (
+                    <div className="text-red-600 text-sm mt-2 text-center">
+                      {error}
+                    </div>
+                  )}
                 </form>
 
                 <p className="text-sm text-gray-500 mt-3 text-center">
@@ -101,7 +124,7 @@ const Footer = () => {
                 <div>
                   <h3 className="text-xl font-bold text-gray-800">Jobmarkit</h3>
                   <p className="text-gray-600 text-sm font-medium">
-                    Sierra Leone's #1 Job Portal
+                    Sierra Leone&apos;s #1 Job Portal
                   </p>
                 </div>
               </div>

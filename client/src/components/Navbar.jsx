@@ -1,11 +1,11 @@
-import React, { useContext, useEffect, useState } from "react";
-import { useClerk, UserButton, useUser } from "@clerk/clerk-react";
+import { useContext, useState } from "react";
+import { UserButton, useUser } from "@clerk/clerk-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
 import { useAuthContext } from "../context/AuthContext";
-import { Zap, Briefcase, MessageSquare } from "lucide-react";
+import { Zap, Briefcase } from "lucide-react";
 import { FiBookmark, FiMenu, FiX, FiArrowLeft } from "react-icons/fi";
-import axios from "axios";
+import PropTypes from "prop-types";
 
 const Navbar = ({
   setShowAuthModal,
@@ -14,42 +14,13 @@ const Navbar = ({
   setRecruiterMode,
 }) => {
   const { user } = useUser();
-  const { logout } = useAuthContext();
+  useAuthContext();
   const navigate = useNavigate();
-  const { backendUrl, userApplications, totalUnreadCount } =
-    useContext(AppContext);
+  const { totalUnreadCount } = useContext(AppContext);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Check for unread messages
-  useEffect(() => {
-    const checkUnreadMessages = async () => {
-      if (user && userApplications && userApplications.length > 0) {
-        let totalUnread = 0;
-        for (const application of userApplications) {
-          try {
-            const { data } = await axios.get(
-              `${backendUrl}/api/simple-chat/${application._id}`
-            );
-            if (data.success) {
-              const unreadCount = data.messages.filter(
-                (msg) => msg.senderType === "recruiter" && !msg.read
-              ).length;
-              totalUnread += unreadCount;
-            }
-          } catch (error) {
-            console.error("Error checking unread messages:", error);
-          }
-        }
-        // setTotalUnreadCount(totalUnread); // This line is removed as totalUnreadCount is now from AppContext
-      }
-    };
-
-    checkUnreadMessages();
-    // Check every 30 seconds for new messages
-    const interval = setInterval(checkUnreadMessages, 30000);
-    return () => clearInterval(interval);
-  }, [user, userApplications, backendUrl]);
+  // Removed unused checkUnreadMessages logic
 
   const handleGetStarted = () => {
     setAuthMode("signin");
@@ -224,6 +195,13 @@ const Navbar = ({
       )}
     </>
   );
+};
+
+Navbar.propTypes = {
+  setShowAuthModal: PropTypes.func,
+  setAuthMode: PropTypes.func,
+  setShowRecruiterModal: PropTypes.func,
+  setRecruiterMode: PropTypes.func,
 };
 
 export default Navbar;

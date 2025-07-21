@@ -21,6 +21,7 @@ import { protectCompany, protectUser } from "./middleware/authMiddleware.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { setSocketIO } from "./controllers/simpleMessageController.js";
+import subscribeRoutes from "./routes/subscribeRoutes.js";
 
 // Initialize Express
 const app = express();
@@ -68,6 +69,7 @@ app.use("/", applicationRoutes);
 app.use("/api/company", interviewRoutes);
 app.use("/api/messages", protectCompany, messageRoutes);
 app.use("/api/user-messages", protectUser, messageRoutes);
+app.use("/api/subscribe", subscribeRoutes);
 
 // Simple test messaging route without authentication
 app.use("/api/simple-messages", messageRoutes);

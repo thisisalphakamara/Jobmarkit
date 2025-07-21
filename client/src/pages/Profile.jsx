@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
 import {
@@ -26,7 +26,6 @@ const Profile = () => {
     backendUrl,
   } = useContext(AppContext);
   const [isEditing, setIsEditing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -288,22 +287,27 @@ const Profile = () => {
                   Personal Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Full Name
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        name="fullName"
-                        value={formData.fullName}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-transparent"
-                      />
-                    ) : (
-                      <p className="text-gray-900">{getDisplayName()}</p>
-                    )}
-                  </div>
+                  {/* Full Name for Individual recruiter type */}
+                  {["Individual"].includes(
+                    profileData?.recruiterType || recruiterData?.recruiterType
+                  ) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Full Name
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          name="fullName"
+                          value={formData.fullName}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900">{getDisplayName()}</p>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -369,6 +373,31 @@ const Profile = () => {
                         </p>
                       )}
                     </div>
+                    {/* Contact Person Name for Company/NGO/Government */}
+                    {["Company", "NGO", "Government"].includes(
+                      profileData?.recruiterType || recruiterData?.recruiterType
+                    ) && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Contact Person Name
+                        </label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            name="contactPersonName"
+                            value={formData.contactPersonName || ""}
+                            onChange={handleInputChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-transparent"
+                          />
+                        ) : (
+                          <p className="text-gray-900">
+                            {profileData?.contactPersonName ||
+                              recruiterData?.contactPersonName ||
+                              "-"}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">

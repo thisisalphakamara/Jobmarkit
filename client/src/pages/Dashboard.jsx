@@ -1,10 +1,8 @@
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { assets } from "../assets/assets";
 import { AppContext } from "../context/AppContext";
 import {
   LogOut,
-  ChevronDown,
   LayoutGrid,
   PlusCircle,
   Briefcase,
@@ -14,7 +12,6 @@ import {
   User,
 } from "lucide-react";
 import Loading from "../components/Loading";
-import axios from "axios";
 
 const Dashboard = () => {
   const {
@@ -24,13 +21,18 @@ const Dashboard = () => {
     setCompanyData,
     logoutRecruiter,
     isCompanyAuthLoading,
-    backendUrl,
+    recruiterData: contextRecruiterData,
   } = useContext(AppContext);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [loading, setLoading] = useState(true);
-  const [recruiterData, setRecruiterData] = useState(null);
+  // Local recruiterData for display, synced with context
+  const [recruiterData, setRecruiterData] = useState(contextRecruiterData);
+
+  // Sync local recruiterData with context recruiterData (updates after profile change)
+  useEffect(() => {
+    setRecruiterData(contextRecruiterData);
+  }, [contextRecruiterData]);
 
   useEffect(() => {
     // This effect now handles redirection after the auth check is complete.
@@ -56,32 +58,6 @@ const Dashboard = () => {
     navigate,
     recruiterData,
   ]);
-
-  // Fetch recruiter data for profile display
-  useEffect(() => {
-    const fetchRecruiterData = async () => {
-      if (!recruiterToken) return;
-
-      try {
-        const response = await axios.get(
-          `${backendUrl}/api/recruiters/profile`,
-          {
-            headers: {
-              Authorization: `Bearer ${recruiterToken}`,
-            },
-          }
-        );
-
-        if (response.data.success) {
-          setRecruiterData(response.data.recruiter);
-        }
-      } catch (error) {
-        console.error("Error fetching recruiter data:", error);
-      }
-    };
-
-    fetchRecruiterData();
-  }, [recruiterToken, backendUrl]);
 
   const logout = () => {
     if (companyToken) {
@@ -171,7 +147,14 @@ const Dashboard = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  Hi, {getDisplayName().split(" ")[0]}
+                  Hi
+                  {recruiterData &&
+                  recruiterData.recruiterType === "Individual" &&
+                  recruiterData.fullName
+                    ? ` ${recruiterData.fullName.split(" ")[0]}`
+                    : getDisplayName() !== "Recruiter"
+                    ? ` ${getDisplayName().split(" ")[0]}`
+                    : " Recruiter"}
                 </p>
                 <p className="text-xs text-gray-500 truncate">
                   {recruiterData.recruiterType}

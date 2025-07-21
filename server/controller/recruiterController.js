@@ -509,12 +509,21 @@ export const updateRecruiterProfile = async (req, res) => {
     }
 
     // Update allowed fields
+    // Allow updating all relevant fields based on recruiterType
     const allowedFields = [
       "phone",
       "website",
       "industry",
       "organizationSize",
       "officeAddress",
+      "fullName",
+      "contactPersonName",
+      "organizationName",
+      "businessRegistrationNumber",
+      "foundedYear",
+      "ministryDepartmentAgency",
+      "designation",
+      "authorizationLetterNumber",
     ];
 
     allowedFields.forEach((field) => {
@@ -528,14 +537,7 @@ export const updateRecruiterProfile = async (req, res) => {
     res.json({
       success: true,
       message: "Profile updated successfully",
-      recruiter: {
-        id: recruiter._id,
-        recruiterType: recruiter.recruiterType,
-        email: recruiter.email,
-        displayName: recruiter.displayName,
-        initials: recruiter.initials,
-        logo: recruiter.logo,
-      },
+      recruiter,
     });
   } catch (error) {
     console.error("Update recruiter profile error:", error);

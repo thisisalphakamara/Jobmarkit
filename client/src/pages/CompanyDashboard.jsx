@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
 import {
@@ -7,13 +7,10 @@ import {
   PlusCircle,
   Briefcase,
   Users,
-  Settings,
   Building,
   BarChart3,
   Calendar,
   TrendingUp,
-  FileText,
-  Globe,
   User,
   Bell,
   Search,
@@ -393,7 +390,7 @@ const CompanyDashboard = () => {
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
                       <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
                       <span className="text-sm text-gray-600">
-                        Job "Marketing Manager" published successfully
+                        Job &quot;Marketing Manager&quot; published successfully
                       </span>
                     </div>
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">

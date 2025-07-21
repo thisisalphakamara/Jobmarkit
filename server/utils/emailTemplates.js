@@ -47,3 +47,16 @@ export const interviewCancelledTemplate = (data) => {
     </div>
   `;
 };
+
+export const subscriptionConfirmationTemplate = (data) => {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">Welcome to the Jobmarkit Community!</h2>
+      <p>Dear ${data.email},</p>
+      <p>Thank you for subscribing to the Jobmarkit Community. We're excited to have you on board!</p>
+      <p>You'll be the first to know about new job opportunities, features, and exclusive resources for Sierra Leone professionals.</p>
+      <br>
+      <p>Best regards,<br>Jobmarkit Team</p>
+    </div>
+  `;
+};

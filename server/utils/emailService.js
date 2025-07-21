@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import {
   interviewScheduledTemplate,
   interviewCancelledTemplate,
+  subscriptionConfirmationTemplate,
 } from "./emailTemplates.js";
 
 // Create reusable transporter object using SMTP transport
@@ -25,6 +26,9 @@ const sendEmail = async ({ to, subject, template, data }) => {
         break;
       case "interview-cancelled":
         htmlContent = interviewCancelledTemplate(data);
+        break;
+      case "subscription-confirmation":
+        htmlContent = subscriptionConfirmationTemplate(data);
         break;
       default:
         throw new Error("Invalid email template");
