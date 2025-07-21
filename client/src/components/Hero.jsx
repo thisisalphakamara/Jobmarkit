@@ -1,15 +1,8 @@
-import React, { useContext, useRef, useState, useEffect } from "react";
+import { useContext, useRef, useState } from "react";
 import { AppContext } from "../context/AppContext";
 import bgimage from "../assets/jobserach.jpg";
 import { motion } from "framer-motion";
-import {
-  FiSearch,
-  FiMapPin,
-  FiArrowRight,
-  FiChevronDown,
-  FiBriefcase,
-} from "react-icons/fi";
-import { JobLocations, JobCategories } from "../assets/assets";
+import { FiSearch, FiMapPin, FiArrowRight } from "react-icons/fi";
 
 // Import company logos directly
 import companyLogo1 from "../assets/ayv.jpg";
@@ -191,7 +184,7 @@ const Hero = ({ jobListingRef }) => {
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 0.8 }}
           >
-            Trusted by innovative companies Nationwide
+            Trusted by companies Nationwide
           </motion.p>
 
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12">

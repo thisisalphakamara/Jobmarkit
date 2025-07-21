@@ -154,20 +154,29 @@ export const getCompanyJobApplicants = async (req, res) => {
       });
     }
 
-    // Build query based on authentication type
-    const query = {};
+    let query = {};
     if (companyId) {
       query.companyId = companyId;
     } else if (recruiterId) {
-      query.recruiterId = recruiterId;
+      // First, find all jobs posted by this recruiter
+      const recruiterJobs = await Job.find({ recruiterId }).select("_id");
+      const jobIds = recruiterJobs.map((job) => job._id);
+
+      // Then, find all applications for those jobs
+      query = { jobId: { $in: jobIds } };
     }
 
     const applications = await JobApplication.find(query)
-      .populate(
-        "userId",
-        "_id firstName lastName email resume image profileImage"
-      )
-      .populate("jobId", "title");
+      .populate({
+        path: "userId",
+        model: "User",
+        select: "_id firstName lastName email resume image profileImage",
+      })
+      .populate({
+        path: "jobId",
+        model: "Job",
+        select: "title",
+      });
 
     // Filter out applications with missing userId or jobId after population
     const filteredApplications = applications.filter(

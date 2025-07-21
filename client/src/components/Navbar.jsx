@@ -27,6 +27,18 @@ const Navbar = ({
     setShowAuthModal(true);
   };
 
+  const handleGetStartedClick = () => {
+    setAuthMode("signin");
+    setShowAuthModal(true);
+    setMobileMenuOpen(false);
+  };
+
+  const handleSignInClick = () => {
+    setAuthMode("signin");
+    setShowAuthModal(true);
+    setMobileMenuOpen(false);
+  };
+
   return (
     <>
       <nav className="mx-8 rounded-xl bg-white shadow-sm border-b border-gray-100 py-6 px-8 flex justify-between items-center">
@@ -40,15 +52,6 @@ const Navbar = ({
           </div>
           <span className="text-2xl font-bold text-gray-800">Jobmarkit</span>
         </div>
-
-        {/* Hamburger menu for mobile */}
-        <button
-          className="md:hidden text-gray-700 focus:outline-none"
-          onClick={() => setMobileMenuOpen((open) => !open)}
-          aria-label="Open menu"
-        >
-          {mobileMenuOpen ? <FiX size={28} /> : <FiMenu size={28} />}
-        </button>
 
         {/* User section with premium styling (desktop only) */}
         <div className="hidden md:flex items-center gap-4">
@@ -113,84 +116,76 @@ const Navbar = ({
             </>
           )}
         </div>
+
+        {/* --- CORRECTED MOBILE MENU SECTION --- */}
+        <div className="md:hidden flex items-center gap-4">
+          {user ? (
+            // If logged in, show action icons directly (NO hamburger menu)
+            <div className="flex items-center gap-5">
+              <Link
+                to="/applications"
+                className="text-gray-700 hover:text-gray-800"
+              >
+                <Briefcase size={24} />
+              </Link>
+              <Link
+                to="/saved-jobs"
+                className="text-gray-700 hover:text-gray-800"
+              >
+                <FiBookmark size={24} />
+              </Link>
+              <UserButton afterSignOutUrl="/" />
+            </div>
+          ) : (
+            // If logged out, show only hamburger
+            <button onClick={() => setMobileMenuOpen(true)}>
+              <FiMenu className="w-8 h-8 text-gray-700" />
+            </button>
+          )}
+        </div>
       </nav>
 
-      {/* Mobile menu overlay */}
-      {mobileMenuOpen && (
+      {/* Mobile menu overlay - ONLY FOR LOGGED-OUT USERS NOW */}
+      {mobileMenuOpen && !user && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex flex-col md:hidden">
           <div className="bg-white shadow-xl rounded-b-2xl mx-4 mt-4 p-6 flex flex-col gap-6 animate-fadeInDown relative">
-            {/* Back button */}
             <button
-              className="absolute top-4 left-4 text-gray-700 bg-gray-100 rounded-full p-2 focus:outline-none"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-label="Back"
+              className="absolute top-4 left-4 p-2 text-gray-500 hover:text-gray-700"
+              onClick={() => navigate(-1)} // Go back
             >
-              <FiArrowLeft size={24} />
+              <FiArrowLeft size={22} />
             </button>
-            {user ? (
-              <>
-                <Link
-                  to="/applications"
-                  className="flex items-center gap-2 text-gray-700 hover:text-gray-800 transition-all duration-200 px-4 py-2 rounded-lg hover:bg-gray-100 relative"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Briefcase size={18} />
-                  <span className="font-medium">My Jobs</span>
-                  {totalUnreadCount > 0 && (
-                    <span className="ml-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                      {totalUnreadCount}
-                    </span>
-                  )}
-                </Link>
-                <Link
-                  to="/saved-jobs"
-                  className="flex items-center gap-2 text-gray-700 hover:text-gray-800 transition-all duration-200 px-4 py-2 rounded-lg hover:bg-gray-100"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <FiBookmark size={18} />
-                  <span className="font-medium">Saved Jobs</span>
-                </Link>
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="text-sm font-medium text-gray-600">
-                    Hi, {user.firstName}
-                  </span>
-                  <UserButton
-                    appearance={{
-                      elements: {
-                        userButtonAvatarBox:
-                          "h-10 w-10 border-2 border-gray-200 shadow-md",
-                        userButtonPopoverCard:
-                          "shadow-2xl rounded-xl border border-gray-100",
-                        userButtonTrigger: "focus:ring-2 focus:ring-gray-200",
-                      },
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
+            <button
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <FiX size={22} />
+            </button>
+
+            {/* Logged-out options */}
+            <div className="mt-8 flex flex-col gap-4">
+              <button
+                onClick={handleGetStartedClick}
+                className="w-full bg-gray-700 text-white px-6 py-4 rounded-lg font-semibold hover:bg-gray-800 transition-colors text-lg"
+              >
+                Get Started
+              </button>
+              <div className="text-center">
+                <span className="text-gray-600">Already have an account?</span>
                 <button
-                  onClick={() => {
-                    setRecruiterMode("signin");
-                    setShowRecruiterModal(true);
-                    setMobileMenuOpen(false);
-                  }}
-                  className="text-sm font-medium text-gray-600 hover:text-gray-800 transition-all duration-200 px-4 py-2 rounded-lg hover:bg-gray-100"
+                  onClick={handleSignInClick}
+                  className="text-gray-700 font-semibold hover:underline ml-2"
                 >
-                  Recruiter Portal
+                  Sign In
                 </button>
-                <button
-                  onClick={() => {
-                    handleGetStarted();
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`bg-gray-700 text-white hover:bg-gray-800 px-6 py-2.5 rounded-xl font-medium text-sm ${"hover:shadow-md"} transition-all duration-300`}
-                >
-                  Get Started
-                </button>
-              </>
-            )}
+              </div>
+            </div>
           </div>
+          {/* Click outside to close */}
+          <div
+            className="flex-grow"
+            onClick={() => setMobileMenuOpen(false)}
+          ></div>
         </div>
       )}
     </>

@@ -71,13 +71,12 @@ export const scheduleInterview = async (req, res) => {
       });
     }
 
-    // Verify that the application belongs to the company
-    console.log("Comparing company IDs:", {
-      applicationCompanyId: application.companyId.toString(),
-      requestCompanyId: req.company._id.toString(),
-    });
-
-    if (application.companyId.toString() !== req.company._id.toString()) {
+    // Verify that the application belongs to the company or recruiter
+    const companyId = req.company?._id || req.recruiter?._id;
+    if (
+      application.companyId?.toString() !== companyId.toString() &&
+      application.recruiterId?.toString() !== companyId.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message:
@@ -122,30 +121,36 @@ export const scheduleInterview = async (req, res) => {
     await application.save();
     console.log("Application updated successfully");
 
-    // Send email notification
-    const emailData = {
-      to: application.userId.email,
-      subject: "Interview Scheduled",
-      template: "interview-scheduled",
-      data: {
-        applicantName: application.userId.name,
-        jobTitle: application.jobId.title,
-        interviewType: type,
-        interviewDate: new Date(date).toLocaleDateString(),
-        interviewTime: time,
-        ...(type === "online" ? { meetingLink } : { location }),
-      },
-    };
-
-    console.log("Sending email notification:", emailData);
-    await sendEmail(emailData);
-    console.log("Email sent successfully");
-
+    // Immediately send success response
     res.status(201).json({
       success: true,
       message: "Interview scheduled successfully",
       interview,
     });
+
+    // Send email notification in the background
+    try {
+      const emailData = {
+        to: application.userId.email,
+        subject: "Interview Scheduled",
+        template: "interview-scheduled",
+        data: {
+          applicantName: application.userId.name,
+          jobTitle: application.jobId.title,
+          interviewType: type,
+          interviewDate: new Date(date).toLocaleDateString(),
+          interviewTime: time,
+          ...(type === "online" ? { meetingLink } : { location }),
+        },
+      };
+
+      console.log("Sending email notification:", emailData);
+      await sendEmail(emailData);
+      console.log("Email sent successfully");
+    } catch (emailError) {
+      console.error("Failed to send interview schedule email:", emailError);
+      // Don't send an error response here since the interview is already scheduled
+    }
   } catch (error) {
     console.error("Error scheduling interview:", error);
     console.error("Error stack:", error.stack);

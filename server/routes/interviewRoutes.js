@@ -5,12 +5,12 @@ import {
   updateInterviewStatus,
   cancelInterview,
 } from "../controllers/interviewController.js";
-import { verifyCompanyToken } from "../middleware/auth.js";
+import { protectCompany } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // All routes are protected with company authentication
-router.use(verifyCompanyToken);
+router.use(protectCompany);
 
 // Schedule a new interview
 router.post("/schedule-interview", scheduleInterview);

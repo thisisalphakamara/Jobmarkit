@@ -463,7 +463,20 @@ const JobListing = () => {
           job.companyId &&
           job.companyId.name &&
           job.companyId.name.toLowerCase().includes(search);
-        return titleMatch || keywordMatch || companyMatch;
+
+        // NEW: Recruiter name match
+        const recruiterMatch =
+          job.recruiterId &&
+          (
+            job.recruiterId.fullName ||
+            job.recruiterId.contactPersonName ||
+            job.recruiterId.displayName ||
+            ""
+          )
+            .toLowerCase()
+            .includes(search);
+
+        return titleMatch || keywordMatch || companyMatch || recruiterMatch;
       };
 
       const matchesSearchLocation = (job) => {
