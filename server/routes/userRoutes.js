@@ -12,6 +12,7 @@ import {
   getSavedJobs,
   checkIfJobSaved,
   removeUserResume,
+  testResumeParsing,
 } from "../controller/userController.js";
 import upload from "../config/multer.js";
 import { protectUser } from "../middleware/authMiddleware.js";
@@ -36,6 +37,7 @@ router.post("/remove-resume", protectUser, removeUserResume);
 // AI and Resume Analysis routes
 router.get("/analyze-resume", protectUser, analyzeResume);
 router.get("/ai-recommendations", protectUser, getAIRecommendations);
+router.post("/test-resume-parsing", protectUser, testResumeParsing);
 
 // Saved Jobs routes
 router.post("/save-job", protectUser, saveJob);

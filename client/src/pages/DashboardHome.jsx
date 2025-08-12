@@ -8,7 +8,6 @@ import {
   Calendar,
   PlusCircle,
   Eye,
-  Star,
 } from "lucide-react";
 import Loading from "../components/Loading";
 import { Link, useNavigate } from "react-router-dom";
@@ -128,15 +127,7 @@ const DashboardHome = () => {
             Rejected: { count: 0, color: "bg-red-200" },
           };
 
-          const applicantsWithScores = await Promise.all(
-            applications.map(async (applicant) => {
-              // This is a simplified score calculation for the dashboard
-              const score = Math.floor(Math.random() * 40) + 60; // Placeholder
-              return { ...applicant, matchScore: score };
-            })
-          );
-
-          applicantsWithScores.forEach((app) => {
+          applications.forEach((app) => {
             const status = app.status?.toLowerCase();
             if (status === "pending") {
               pipeline["Applied"].count++;
@@ -155,11 +146,12 @@ const DashboardHome = () => {
             color: pipeline[key].color,
           }));
 
-          const topCandidates = [...applicantsWithScores]
-            .sort((a, b) => b.matchScore - a.matchScore)
+          // Top candidates: pick most recent applicants
+          const topCandidates = [...applications]
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 3);
 
-          const recentActivities = [...applicantsWithScores]
+          const recentActivities = [...applications]
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 5);
 
@@ -337,10 +329,6 @@ const DashboardHome = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="flex items-center gap-1 font-bold text-emerald-600">
-                      <Star size={16} />
-                      <span>{candidate.matchScore}% Match</span>
-                    </div>
                     <Link
                       to={`/dashboard/view-applications`} // Simplified link
                       className="text-sm text-blue-600 hover:underline mt-1"

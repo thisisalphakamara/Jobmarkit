@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   FiMapPin,
@@ -162,22 +163,22 @@ const Footer = () => {
             </h3>
             <ul className="space-y-3">
               <li>
-                <a
-                  href="/jobs"
+                <Link
+                  to="/jobs"
                   className="flex items-center gap-3 text-gray-600 hover:text-gray-800 transition-colors duration-300"
                 >
                   <FiBriefcase className="w-4 h-4 text-gray-500" />
                   <span>Browse Jobs</span>
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="/resume-builder"
+                <Link
+                  to="/resume-builder"
                   className="flex items-center gap-3 text-gray-600 hover:text-gray-800 transition-colors duration-300"
                 >
                   <FiBriefcase className="w-4 h-4 text-gray-500" />
                   <span>Resume Builder</span>
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -190,22 +191,22 @@ const Footer = () => {
             </h3>
             <ul className="space-y-3">
               <li>
-                <a
-                  href="/post-job"
+                <Link
+                  to="/dashboard/add-job"
                   className="flex items-center gap-3 text-gray-600 hover:text-gray-800 transition-colors duration-300"
                 >
                   <FiBriefcase className="w-4 h-4 text-gray-500" />
                   <span>Post a Job</span>
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="/pricing"
+                <Link
+                  to="/pricing"
                   className="flex items-center gap-3 text-gray-600 hover:text-gray-800 transition-colors duration-300"
                 >
                   <FiBriefcase className="w-4 h-4 text-gray-500" />
                   <span>Pricing Plans</span>
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -218,22 +219,22 @@ const Footer = () => {
             </h3>
             <ul className="space-y-3">
               <li>
-                <a
-                  href="/about"
+                <Link
+                  to="/about"
                   className="flex items-center gap-3 text-gray-600 hover:text-gray-800 transition-colors duration-300"
                 >
                   <FiGlobe className="w-4 h-4 text-gray-500" />
                   <span>About Us</span>
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="/contact"
+                <Link
+                  to="/contact"
                   className="flex items-center gap-3 text-gray-600 hover:text-gray-800 transition-colors duration-300"
                 >
                   <FiGlobe className="w-4 h-4 text-gray-500" />
                   <span>Contact Us</span>
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -257,18 +258,18 @@ const Footer = () => {
           </div>
 
           <div className="flex space-x-6">
-            <a
-              href="/privacy"
+            <Link
+              to="/privacy"
               className="text-sm text-gray-600 hover:text-gray-800 transition-colors duration-300"
             >
               Privacy Policy
-            </a>
-            <a
-              href="/terms"
+            </Link>
+            <Link
+              to="/terms"
               className="text-sm text-gray-600 hover:text-gray-800 transition-colors duration-300"
             >
               Terms of Service
-            </a>
+            </Link>
           </div>
         </div>
       </div>

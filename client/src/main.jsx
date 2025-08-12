@@ -19,7 +19,7 @@ if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) {
   );
 }
 
-const backendUrl = import.meta.env.VITE_API_BASE_URL;
+const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 createRoot(document.getElementById("root")).render(
   <ErrorBoundary>

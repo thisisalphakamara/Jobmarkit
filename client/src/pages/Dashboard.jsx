@@ -7,11 +7,13 @@ import {
   PlusCircle,
   Briefcase,
   Users,
-  Settings,
   Zap,
   User,
+  BarChart3,
+  Bell,
 } from "lucide-react";
 import Loading from "../components/Loading";
+import axios from "axios";
 
 const Dashboard = () => {
   const {
@@ -22,12 +24,20 @@ const Dashboard = () => {
     logoutRecruiter,
     isCompanyAuthLoading,
     recruiterData: contextRecruiterData,
+    backendUrl,
+    totalUnreadCount,
   } = useContext(AppContext);
   const navigate = useNavigate();
   const location = useLocation();
 
   // Local recruiterData for display, synced with context
   const [recruiterData, setRecruiterData] = useState(contextRecruiterData);
+  const [stats, setStats] = useState({
+    totalJobs: 0,
+    activeJobs: 0,
+    totalApplications: 0,
+    recentApplications: 0,
+  });
 
   // Sync local recruiterData with context recruiterData (updates after profile change)
   useEffect(() => {
@@ -46,18 +56,59 @@ const Dashboard = () => {
       navigate("/");
       return;
     }
+  }, [companyToken, recruiterToken, isCompanyAuthLoading, navigate]);
 
-    // If we have recruiter data and it's a company, redirect to company dashboard
-    if (recruiterData && recruiterData.recruiterType === "Company") {
-      navigate("/company-dashboard");
-    }
-  }, [
-    companyToken,
-    recruiterToken,
-    isCompanyAuthLoading,
-    navigate,
-    recruiterData,
-  ]);
+  // Fetch recruiter data for profile display
+  useEffect(() => {
+    const fetchRecruiterData = async () => {
+      if (!recruiterToken) return;
+
+      try {
+        const response = await axios.get(
+          `${backendUrl}/api/recruiters/profile`,
+          {
+            headers: {
+              Authorization: `Bearer ${recruiterToken}`,
+            },
+          }
+        );
+
+        if (response.data.success) {
+          setRecruiterData(response.data.recruiter);
+        }
+      } catch (error) {
+        console.error("Error fetching recruiter data:", error);
+      }
+    };
+
+    fetchRecruiterData();
+  }, [recruiterToken, backendUrl]);
+
+  // Fetch dashboard stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!recruiterToken) return;
+
+      try {
+        const response = await axios.get(
+          `${backendUrl}/api/recruiters/dashboard-stats`,
+          {
+            headers: {
+              Authorization: `Bearer ${recruiterToken}`,
+            },
+          }
+        );
+
+        if (response.data.success) {
+          setStats(response.data.stats);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      }
+    };
+
+    fetchStats();
+  }, [recruiterToken, backendUrl]);
 
   const logout = () => {
     if (companyToken) {
@@ -77,7 +128,7 @@ const Dashboard = () => {
     if (recruiterData.recruiterType === "Individual") {
       return recruiterData.fullName || "Recruiter";
     } else {
-      return recruiterData.contactPersonName || "Recruiter";
+      return recruiterData.organizationName || "Organization";
     }
   };
 
@@ -91,10 +142,12 @@ const Dashboard = () => {
       .slice(0, 2);
   };
 
+  const isCompanyRecruiter = recruiterData?.recruiterType === "Company";
+
   const navLinks = [
     { name: "Dashboard", path: "/dashboard", icon: <LayoutGrid size={18} /> },
     {
-      name: "Add Job",
+      name: isCompanyRecruiter ? "Post Job" : "Add Job",
       path: "/dashboard/add-job",
       icon: <PlusCircle size={18} />,
     },
@@ -108,6 +161,16 @@ const Dashboard = () => {
       path: "/dashboard/view-applications",
       icon: <Users size={18} />,
     },
+    // Only show Analytics for company recruiters
+    ...(isCompanyRecruiter
+      ? [
+          {
+            name: "Analytics",
+            path: "/dashboard/analytics",
+            icon: <BarChart3 size={18} />,
+          },
+        ]
+      : []),
   ];
 
   // Only show loading for company auth, not for recruiter auth
@@ -118,57 +181,53 @@ const Dashboard = () => {
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans">
       {/* Sidebar */}
-      <aside className="w-52 bg-white border-r border-gray-200 flex-shrink-0 sticky top-0 h-screen">
-        <div className="p-6">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="bg-gray-700 p-1.5 rounded-lg group-hover:shadow-lg group-hover:shadow-gray-700/30 transition-all duration-300">
-              <Zap size={20} className="text-white" />
-            </div>
-            <span className="text-xl font-bold text-gray-800">Jobmarkit</span>
-          </Link>
+      <div className="fixed left-0 top-0 w-64 h-screen bg-white shadow-sm border-r border-gray-200 flex flex-col overflow-y-auto z-10">
+        {/* Logo/Brand - match Navbar styling */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-800">Jobmarkit</h1>
+          </div>
         </div>
 
-        {/* Recruiter Profile Section */}
-        {recruiterToken && recruiterData && (
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                {recruiterData.logo ? (
-                  <img
-                    src={recruiterData.logo}
-                    alt="Profile"
-                    className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gray-700 text-white text-sm font-bold flex items-center justify-center border-2 border-gray-200">
-                    {getInitials(getDisplayName())}
-                  </div>
-                )}
+        {/* User Profile */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            {recruiterData?.logo ? (
+              <img
+                src={recruiterData.logo}
+                alt={getDisplayName()}
+                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-sm font-semibold text-blue-600">
+                  {getInitials(getDisplayName())}
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  Hi
-                  {recruiterData &&
-                  recruiterData.recruiterType === "Individual" &&
-                  recruiterData.fullName
-                    ? ` ${recruiterData.fullName.split(" ")[0]}`
-                    : getDisplayName() !== "Recruiter"
-                    ? ` ${getDisplayName().split(" ")[0]}`
-                    : " Recruiter"}
-                </p>
-                <p className="text-xs text-gray-500 truncate">
-                  {recruiterData.recruiterType}
-                </p>
-              </div>
-              <Link
-                to="/dashboard/profile"
-                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <User size={16} />
-              </Link>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                Hi
+                {recruiterData &&
+                recruiterData.recruiterType === "Individual" &&
+                recruiterData.fullName
+                  ? ` ${recruiterData.fullName.split(" ")[0]}`
+                  : getDisplayName() !== "Recruiter"
+                  ? ` ${getDisplayName().split(" ")[0]}`
+                  : " Recruiter"}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {recruiterData?.recruiterType || "Recruiter"}
+              </p>
             </div>
+            <Link
+              to="/dashboard/profile"
+              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <User size={16} />
+            </Link>
           </div>
-        )}
+        </div>
 
         <nav className="mt-6 px-2">
           <ul>
@@ -189,28 +248,62 @@ const Dashboard = () => {
             ))}
           </ul>
         </nav>
-        <div className="absolute bottom-0 w-52 p-3 border-t border-gray-200">
-          <Link
-            to="/dashboard/settings"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 text-sm"
-          >
-            <Settings size={18} />
-            <span className="font-medium">Settings</span>
-          </Link>
+        <div className="mt-auto p-3 border-t border-gray-200">
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 mt-2 text-sm"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors w-full"
           >
             <LogOut size={18} />
             <span className="font-medium">Logout</span>
           </button>
         </div>
-      </aside>
+      </div>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 overflow-y-auto">
-        <Outlet />
-      </main>
+      <div className="flex-1 flex flex-col ml-64">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {location.pathname === "/dashboard" && "Dashboard"}
+              {location.pathname === "/dashboard/add-job" &&
+                (isCompanyRecruiter ? "Post Job" : "Add Job")}
+              {location.pathname === "/dashboard/manage-jobs" && "Manage Jobs"}
+              {location.pathname === "/dashboard/view-applications" &&
+                "Applications"}
+              {location.pathname === "/dashboard/analytics" && "Analytics"}
+              {location.pathname === "/dashboard/profile" && "Profile"}
+              {location.pathname.includes("/dashboard/edit-job/") && "Edit Job"}
+            </h2>
+            <div className="flex items-center gap-4">
+              {/* Bell notification with unread messages count */}
+              {location.pathname === "/dashboard" && (
+                <button
+                  onClick={() =>
+                    navigate("/dashboard/view-applications", {
+                      state: { sortUnreadTop: true },
+                    })
+                  }
+                  className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  aria-label="Unread messages"
+                >
+                  <Bell size={22} className="text-gray-700" />
+                  {typeof totalUnreadCount === "number" && totalUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-semibold px-1.5 h-5 min-w-[1.25rem]">
+                      {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 };

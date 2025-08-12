@@ -33,6 +33,8 @@ const JobCard = ({
   viewMode = "grid",
   showQuickApply = false,
   showAIScore = false,
+  highlightSelectedAI = false,
+  selectedAIRecommendationId = null,
 }) => {
   console.log("JobCard description:", job.description);
   const navigate = useNavigate();
@@ -278,17 +280,13 @@ const JobCard = ({
   // Simplified location display for the card
   const displayTown = job.location?.town || "Location";
 
-  // AI Match Score functions
+  // AI Match Score functions (match JobListing palette)
   const getMatchColor = (percentage) => {
-    if (percentage >= 90)
-      return "text-purple-600 bg-purple-100 border-purple-200";
-    if (percentage >= 80)
-      return "text-purple-600 bg-purple-100 border-purple-200";
-    if (percentage >= 70)
-      return "text-purple-500 bg-purple-50 border-purple-200";
-    if (percentage >= 60)
-      return "text-purple-400 bg-purple-50 border-purple-200";
-    return "text-purple-300 bg-purple-50 border-purple-200";
+    if (percentage >= 90) return "text-green-700 bg-green-50 border-green-200";
+    if (percentage >= 80) return "text-blue-700 bg-blue-50 border-blue-200";
+    if (percentage >= 70) return "text-yellow-700 bg-yellow-50 border-yellow-200";
+    if (percentage >= 60) return "text-orange-700 bg-orange-50 border-orange-200";
+    return "text-gray-500 bg-gray-50 border-gray-200";
   };
 
   const getMatchLabel = (percentage) => {
@@ -591,9 +589,21 @@ const JobCard = ({
     setShowShareMenu(false);
   };
 
+  const isSelectedAI =
+    !!highlightSelectedAI && !!selectedAIRecommendationId && selectedAIRecommendationId === job._id;
+
+  // Compute a safe percentage for display
+  const safeMatchPercentage =
+    typeof job.matchPercentage === "number"
+      ? Math.round(job.matchPercentage)
+      : typeof job.matchScore === "number"
+      ? Math.round(job.matchScore)
+      : null;
+
   return (
     <>
       <motion.div
+        id={`job-card-${job._id}`}
         className={`relative ${viewMode === "list" ? "w-full" : ""}`}
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -602,26 +612,31 @@ const JobCard = ({
         onHoverStart={() => setIsHovered(true)}
         onHoverEnd={() => setIsHovered(false)}
         data-job-id={job._id}
+        aria-selected={isSelectedAI ? "true" : "false"}
       >
         <div
           className={`bg-white border rounded-lg overflow-hidden transition-all duration-300 ${
-            isHovered ? "border-[#374151] z-10" : "border-gray-200 shadow-sm"
+            isSelectedAI
+              ? "ring-2 ring-gray-300 border-gray-500 bg-gray-50 shadow-md"
+              : isHovered
+              ? "border-[#374151] z-10"
+              : "border-gray-200 shadow-sm"
           } ${viewMode === "list" ? "flex" : ""}`}
         >
           {/* AI Match Score Badge */}
-          {showAIScore && job.matchPercentage && (
+          {showAIScore && safeMatchPercentage !== null && safeMatchPercentage >= 60 && (
             <div className="absolute top-2 right-2 z-20">
               <div
                 className={`px-2 py-1 rounded-full text-xs font-medium border ${getMatchColor(
-                  job.matchPercentage
+                  safeMatchPercentage
                 )}`}
               >
                 <div className="flex items-center gap-1">
                   <FiStar className="h-3 w-3" />
-                  {job.matchPercentage}%
+                  {safeMatchPercentage}%
                 </div>
                 <div className="text-xs opacity-75">
-                  {getMatchLabel(job.matchPercentage)}
+                  {getMatchLabel(safeMatchPercentage)}
                 </div>
               </div>
             </div>

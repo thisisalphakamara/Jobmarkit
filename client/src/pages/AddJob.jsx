@@ -99,6 +99,7 @@ const AddJob = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formStep, setFormStep] = useState(1);
   const [isFormValid, setIsFormValid] = useState(false);
+  const [errors, setErrors] = useState({});
   const [originalLanguage, setOriginalLanguage] = useState("en");
   const [showTranslation, setShowTranslation] = useState(false);
   const [translatedTitle, setTranslatedTitle] = useState("");
@@ -123,6 +124,39 @@ const AddJob = () => {
     return found
       ? { district: found.district, province: found.province }
       : { district: "", province: "" };
+  };
+
+  const validateStep2 = () => {
+    const newErrors = {};
+    // Description must not be empty
+    const descText = quillRef.current ? quillRef.current.getText().trim() : "";
+    if (!descText) newErrors.description = "Job description is required.";
+
+    // Category selection
+    const finalCategory =
+      mainCategory === "Other" ? otherCategory.trim() : (subCategory || "").trim();
+    if (!finalCategory) newErrors.category = "Please select a job category.";
+
+    // Town/Location
+    if (townMode === "dropdown") {
+      if (!town.trim()) newErrors.town = "Please select a town.";
+    } else {
+      if (!manualTown.trim()) newErrors.town = "Please enter a town or village.";
+      if (!district.trim()) newErrors.district = "Please select a district.";
+      if (!province.trim()) newErrors.province = "Please select a province.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handlePreview = () => {
+    // Ensure Quill editor is initialized and validated
+    const ok = validateStep2();
+    if (!ok) {
+      return;
+    }
+    setFormStep(3);
   };
 
   useEffect(() => {
@@ -624,6 +658,9 @@ const AddJob = () => {
                   ref={editorRef}
                   className="w-full border border-gray-300 rounded-lg min-h-48"
                 ></div>
+                {errors.description && (
+                  <p className="mt-2 text-sm text-red-600">{errors.description}</p>
+                )}
                 <p className="mt-1 text-xs text-gray-500">
                   Be specific about responsibilities, requirements, benefits,
                   and company culture
@@ -681,6 +718,9 @@ const AddJob = () => {
                       </option>
                     ))}
                   </select>
+                  {errors.category && (
+                    <p className="mt-2 text-sm text-red-600">{errors.category}</p>
+                  )}
                   {mainCategory !== "Other" ? (
                     <select
                       value={subCategory}
@@ -751,6 +791,9 @@ const AddJob = () => {
                       className="mt-2 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-700 focus:border-gray-700 outline-none transition-all duration-200"
                     />
                   )}
+                  {errors.town && (
+                    <p className="mt-2 text-sm text-red-600">{errors.town}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -768,6 +811,9 @@ const AddJob = () => {
                       </option>
                     ))}
                   </select>
+                  {townMode === "manual" && errors.district && (
+                    <p className="mt-2 text-sm text-red-600">{errors.district}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -785,6 +831,9 @@ const AddJob = () => {
                       </option>
                     ))}
                   </select>
+                  {townMode === "manual" && errors.province && (
+                    <p className="mt-2 text-sm text-red-600">{errors.province}</p>
+                  )}
                 </div>
 
                 <div>
@@ -834,7 +883,7 @@ const AddJob = () => {
             </button>
             <button
               type="button"
-              onClick={() => setFormStep(3)}
+              onClick={handlePreview}
               className="px-6 py-3 bg-gray-700 text-white font-medium rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-gray-700 focus:ring-offset-2 transition-all duration-200"
             >
               Preview Job

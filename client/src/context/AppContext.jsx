@@ -7,7 +7,14 @@ import { useSocket } from "./SocketContext";
 export const AppContext = createContext();
 
 export const AppContextProvider = (props) => {
-  const backendUrl = import.meta.env.VITE_API_BASE_URL;
+  const backendUrl =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
+  console.log("AppContext - backendUrl:", backendUrl);
+  console.log(
+    "AppContext - VITE_API_BASE_URL:",
+    import.meta.env.VITE_API_BASE_URL
+  );
 
   const { user } = useUser();
   const { getToken } = useAuth();

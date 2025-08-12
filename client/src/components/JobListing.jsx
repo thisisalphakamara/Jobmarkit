@@ -309,6 +309,7 @@ const JobListing = () => {
   const [matchingScore, setMatchingScore] = useState({});
   const [skillGapAnalysis, setSkillGapAnalysis] = useState({});
   const [aiLoading, setAiLoading] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showSkillModal, setShowSkillModal] = useState(false);
   const [showResumeAnalysisModal, setShowResumeAnalysisModal] = useState(false);
   const [resumeAnalysis, setResumeAnalysis] = useState(null);
@@ -350,6 +351,13 @@ const JobListing = () => {
       setSelectedSubCategory("All");
     }
   }, [selectedMainCategory]);
+
+  // Clear the login prompt once the user becomes authenticated
+  useEffect(() => {
+    if (userData) {
+      setShowLoginPrompt(false);
+    }
+  }, [userData]);
 
   const triggerTransition = (callback, shouldScroll = true) => {
     setFade(false);
@@ -513,6 +521,48 @@ const JobListing = () => {
         .filter(matchesAIRecommendation)
         .filter(matchesWorkSetup);
 
+      // If AI recommendations panel is active, only show those recommended jobs
+      if (showAIMatching && aiRecommendations && aiRecommendations.length > 0) {
+        const recommendedIds = new Set(aiRecommendations.map((r) => r._id));
+        filtered = filtered.filter((job) => recommendedIds.has(job._id));
+
+        // Further filter to only jobs whose title is the majority among AI recommendations
+        // Compute title frequencies (case-insensitive, trimmed)
+        const titleCounts = aiRecommendations.reduce((acc, rec) => {
+          const key = (rec.title || "").trim().toLowerCase();
+          if (!key) return acc;
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {});
+        let maxCount = 0;
+        for (const k in titleCounts) maxCount = Math.max(maxCount, titleCounts[k]);
+        const majorityTitles = new Set(
+          Object.entries(titleCounts)
+            .filter(([, count]) => count === maxCount)
+            .map(([titleKey]) => titleKey)
+        );
+        filtered = filtered.filter((job) =>
+          majorityTitles.has((job.title || "").trim().toLowerCase())
+        );
+
+        // Merge AI fields into filtered jobs so percentages persist
+        const aiMap = new Map(
+          aiRecommendations.map((rec) => [rec._id, rec])
+        );
+        filtered = filtered.map((job) => {
+          const ai = aiMap.get(job._id);
+          if (!ai) return job;
+          return {
+            ...job,
+            matchScore: ai.matchScore,
+            matchPercentage: ai.matchPercentage,
+            skillMatches: ai.skillMatches,
+            missingSkills: ai.missingSkills,
+            resumeAnalysis: ai.resumeAnalysis,
+          };
+        });
+      }
+
       // Sorting logic
       if (sortBy === "Highest Salary") {
         filtered.sort((a, b) => (b.salary || 0) - (a.salary || 0));
@@ -564,6 +614,8 @@ const JobListing = () => {
     sortBy,
     selectedAIRecommendation,
     selectedWorkSetup,
+    showAIMatching,
+    aiRecommendations,
   ]);
 
   const handleCategoryChange = (mainCat, subCat) => {
@@ -900,9 +952,24 @@ const JobListing = () => {
         setSkillGapAnalysis(skillGap);
         setShowAIMatching(true);
 
-        toast.success(
-          `Found ${recommendations.length} perfect job matches based on your resume!`
+        // Compute majority-title filtered count for accurate toast
+        const titleCounts = recommendations.reduce((acc, rec) => {
+          const key = (rec.title || "").trim().toLowerCase();
+          if (!key) return acc;
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {});
+        let maxCount = 0;
+        for (const k in titleCounts) maxCount = Math.max(maxCount, titleCounts[k]);
+        const majorityTitles = new Set(
+          Object.entries(titleCounts)
+            .filter(([, count]) => count === maxCount)
+            .map(([titleKey]) => titleKey)
         );
+        const majorityFilteredCount = recommendations.filter((rec) =>
+          majorityTitles.has((rec.title || "").trim().toLowerCase())
+        ).length;
+        // Removed popup toast per request; inline count beneath AI panel is sufficient
       } else {
         toast.error(
           response.data.message || "Failed to generate AI recommendations."
@@ -921,6 +988,15 @@ const JobListing = () => {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  // Handle click on the AI recommendation button
+  const handleAIClick = () => {
+    if (!userData) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    generateAIRecommendations();
   };
 
   const getMatchColor = (percentage) => {
@@ -1034,8 +1110,8 @@ const JobListing = () => {
                   </p>
                   <div className="space-y-3">
                     <button
-                      onClick={generateAIRecommendations}
-                      disabled={aiLoading || !userData}
+                      onClick={handleAIClick}
+                      disabled={aiLoading}
                       className={`w-full flex justify-center items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
                         aiLoading
                           ? "bg-gray-100 text-gray-500 cursor-not-allowed"
@@ -1052,26 +1128,29 @@ const JobListing = () => {
                       )}
                     </button>
 
-                    {!userData && (
+                    {showLoginPrompt && (
                       <p className="text-xs text-gray-500 text-center">
                         Login to get AI-powered job recommendations
                       </p>
                     )}
 
-                    {showAIMatching && aiRecommendations.length > 0 && (
+                    {showAIMatching && filteredJobs.length > 0 && (
                       <div className="mt-4 space-y-3">
-                        <div className="text-sm font-bold text-purple-700 flex items-center gap-2 animate-pulse">
+                        <div className="text-sm font-bold text-gray-700 flex items-center gap-2 animate-pulse">
                           <FiStar className="text-yellow-400 animate-spin-slow" />
-                          <span className="px-2 py-1 bg-purple-100 rounded-full border border-purple-300">
+                          <span className="px-2 py-1 bg-gray-100 rounded-full border border-gray-300">
                             AI-Powered Recommendations
                           </span>
                         </div>
-                        {aiRecommendations.slice(0, 3).map((job, index) => (
+                        <div className="text-xs text-gray-600 text-center">
+                          Found {filteredJobs.length} perfect job matches based on your resume!
+                        </div>
+                        {filteredJobs.slice(0, 3).map((job, index) => (
                           <div
                             key={job._id}
                             className={`bg-white rounded-lg p-3 border transition-colors cursor-pointer ${
                               selectedAIRecommendation?._id === job._id
-                                ? "border-purple-500 bg-purple-50 ring-2 ring-purple-200"
+                                ? "border-gray-500 bg-gray-50 ring-2 ring-gray-200"
                                 : "border-gray-200 hover:border-gray-300"
                             }`}
                             onClick={() => {
@@ -1082,6 +1161,13 @@ const JobListing = () => {
                               } else {
                                 // Select this recommendation
                                 setSelectedAIRecommendation(job);
+                                // Scroll the corresponding job card into view
+                                setTimeout(() => {
+                                  const el = document.getElementById(`job-card-${job._id}`);
+                                  if (el) {
+                                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                  }
+                                }, 50);
                               }
                             }}
                           >
@@ -1096,18 +1182,34 @@ const JobListing = () => {
                               </div>
                               <div className="flex items-center gap-2">
                                 {selectedAIRecommendation?._id === job._id && (
-                                  <div className="w-2 h-2 bg-purple-600 rounded-full"></div>
+                                  <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
                                 )}
                                 <div className="flex items-center gap-1">
                                   <span className="text-xs">
-                                    {getMatchIcon(job.matchPercentage)}
+                                    {getMatchIcon(
+                                      typeof job.matchPercentage === "number"
+                                        ? job.matchPercentage
+                                        : typeof job.matchScore === "number"
+                                        ? job.matchScore
+                                        : 0
+                                    )}
                                   </span>
                                   <div
                                     className={`px-2 py-1 rounded-full text-xs font-medium ${getMatchColor(
-                                      job.matchPercentage
+                                      typeof job.matchPercentage === "number"
+                                        ? job.matchPercentage
+                                        : typeof job.matchScore === "number"
+                                        ? job.matchScore
+                                        : 0
                                     )}`}
                                   >
-                                    {job.matchPercentage}%
+                                    {(
+                                      typeof job.matchPercentage === "number"
+                                        ? Math.round(job.matchPercentage)
+                                        : typeof job.matchScore === "number"
+                                        ? Math.round(job.matchScore)
+                                        : 0
+                                    )}%
                                   </div>
                                 </div>
                               </div>
@@ -1186,17 +1288,7 @@ const JobListing = () => {
                           </div>
                         )}
 
-                        {aiRecommendations.length > 3 && (
-                          <div className="text-center">
-                            <button
-                              onClick={() => setShowSkillModal(true)}
-                              className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                            >
-                              View all {aiRecommendations.length}{" "}
-                              recommendations
-                            </button>
-                          </div>
-                        )}
+                        {/* Removed 'View all recommendations' button per user request */}
                       </div>
                     )}
                   </div>
@@ -1893,6 +1985,8 @@ const JobListing = () => {
                           viewMode={viewMode}
                           showQuickApply={showQuickApply}
                           showAIScore={showAIMatching}
+                          highlightSelectedAI={showAIMatching}
+                          selectedAIRecommendationId={selectedAIRecommendation?._id || null}
                         />
                       </motion.div>
                     ))}

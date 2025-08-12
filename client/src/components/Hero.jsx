@@ -1,4 +1,4 @@
-import { useContext, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppContext } from "../context/AppContext";
 import bgimage from "../assets/jobserach.jpg";
 import { motion } from "framer-motion";
@@ -14,11 +14,71 @@ import companyLogo6 from "../assets/Africell.png";
 import companyLogo7 from "../assets/capitolfoods.jpg";
 import companyLogo8 from "../assets/lim.jpg";
 
+// Canonical Sierra Leone towns list (same as JobListing filter)
+const sierraLeoneDistricts = [
+  { district: "Kailahun", province: "Eastern", capital: "Kailahun" },
+  { district: "Kenema", province: "Eastern", capital: "Kenema" },
+  { district: "Kono", province: "Eastern", capital: "Koidu Town" },
+  { district: "Bombali", province: "Northern", capital: "Makeni" },
+  { district: "Falaba", province: "Northern", capital: "Bendugu" },
+  { district: "Koinadugu", province: "Northern", capital: "Kabala" },
+  { district: "Tonkolili", province: "Northern", capital: "Magburaka" },
+  { district: "Kambia", province: "Northern", capital: "Kambia" },
+  { district: "Karene", province: "Northern", capital: "Kamakwie" },
+  { district: "Port Loko", province: "Northern", capital: "Port Loko" },
+  { district: "Bo", province: "Southern", capital: "Bo" },
+  { district: "Bonthe", province: "Southern", capital: "Bonthe" },
+  { district: "Moyamba", province: "Southern", capital: "Moyamba" },
+  { district: "Pujehun", province: "Southern", capital: "Pujehun" },
+  { district: "Western Area Rural", province: "Western Area", capital: "Waterloo" },
+  { district: "Western Area Urban", province: "Western Area", capital: "Freetown" },
+];
+const capitalTowns = [
+  ...sierraLeoneDistricts.map((d) => d.capital),
+  "Lunsar",
+  "Masiaka",
+  "Lungi",
+];
+
 const Hero = ({ jobListingRef }) => {
-  const { setSearchFilter, setIsSearched } = useContext(AppContext);
+  const { setSearchFilter, setIsSearched, jobs } = useContext(AppContext);
   const whatRef = useRef(null);
   const whereRef = useRef(null);
+  const dropdownRef = useRef(null);
   const [activeTag, setActiveTag] = useState(null);
+  const [locationInput, setLocationInput] = useState("");
+  const [showTownList, setShowTownList] = useState(false);
+  const [filteredTowns, setFilteredTowns] = useState([]);
+
+  // Canonical list from JobListing filter
+  const allTowns = useMemo(() => {
+    return Array.from(new Set(capitalTowns)).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, []);
+
+  useEffect(() => {
+    // Initialize or update filtered list when towns or input changes
+    const q = locationInput.trim().toLowerCase();
+    if (!q) {
+      setFilteredTowns(allTowns);
+    } else {
+      setFilteredTowns(
+        allTowns.filter((t) => t.toLowerCase().includes(q))
+      );
+    }
+  }, [allTowns, locationInput]);
+
+  useEffect(() => {
+    // Close dropdown on outside click
+    const onDocMouseDown = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowTownList(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, []);
 
   // Simplified popular tags for Sierra Leone context
   const popularTags = [
@@ -39,7 +99,7 @@ const Hero = ({ jobListingRef }) => {
     e.preventDefault();
     setSearchFilter({
       title: whatRef.current.value,
-      location: whereRef.current.value,
+      location: (locationInput || whereRef.current?.value || "").trim(),
     });
     setIsSearched(true);
     // Scroll to job listing
@@ -66,7 +126,7 @@ const Hero = ({ jobListingRef }) => {
       transition={{ duration: 0.8, ease: "easeOut" }}
     >
       {/* Floating container with margin on all sides */}
-      <section className="relative overflow-hidden mx-4 my-6 lg:mx-8 lg:my-10 rounded-3xl shadow-2xl">
+      <section className="relative overflow-visible mx-4 my-6 lg:mx-8 lg:my-10 rounded-3xl shadow-2xl">
         {/* Background with original gradient overlay */}
         <div className="absolute inset-0">
           <img
@@ -105,7 +165,7 @@ const Hero = ({ jobListingRef }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6, duration: 0.8 }}
-              className="max-w-5xl mx-auto bg-white rounded-xl shadow-2xl overflow-hidden"
+              className="max-w-5xl mx-auto bg-white rounded-xl shadow-2xl overflow-visible"
             >
               <div className="flex flex-col md:flex-row">
                 {/* What Field */}
@@ -119,15 +179,46 @@ const Hero = ({ jobListingRef }) => {
                     defaultValue={activeTag || ""}
                   />
                 </div>
-                {/* Where Field */}
-                <div className="flex-1 flex items-center px-6 py-4 border-b lg:border-b-0 border-gray-200">
-                  <FiMapPin className="text-gray-400 text-xl mr-3 flex-shrink-0" />
-                  <input
-                    type="text"
-                    ref={whereRef}
-                    placeholder="Location (e.g. 'Freetown')"
-                    className="w-full text-lg outline-none placeholder-gray-400"
-                  />
+                {/* Where Field with Town Dropdown */}
+                <div
+                  className="flex-1 px-6 py-4 border-b lg:border-b-0 border-gray-200 relative"
+                  ref={dropdownRef}
+                >
+                  <div className="flex items-center">
+                    <FiMapPin className="text-gray-400 text-xl mr-3 flex-shrink-0" />
+                    <input
+                      type="text"
+                      ref={whereRef}
+                      value={locationInput}
+                      onChange={(e) => setLocationInput(e.target.value)}
+                      onFocus={() => setShowTownList(true)}
+                      placeholder="Location (choose a town)"
+                      className="w-full text-lg outline-none placeholder-gray-400"
+                      autoComplete="off"
+                    />
+                  </div>
+                  {showTownList && filteredTowns.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white border border-gray-200 rounded-lg shadow-xl h-64 overflow-y-auto overscroll-contain custom-scrollbar">
+                      {filteredTowns.map((town) => (
+                        <button
+                          key={town}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100 text-gray-800"
+                          onClick={() => {
+                            setLocationInput(town);
+                            setShowTownList(false);
+                            // keep input ref in sync, though we read from state on submit
+                            if (whereRef.current) whereRef.current.value = town;
+                          }}
+                        >
+                          {town}
+                        </button>
+                      ))}
+                      {filteredTowns.length === 0 && (
+                        <div className="px-3 py-2 text-sm text-gray-500">No towns found</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {/* Search Button */}
                 <button

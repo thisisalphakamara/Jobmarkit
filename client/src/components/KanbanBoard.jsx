@@ -9,7 +9,6 @@ import {
   Move,
   MapPin,
   Calendar,
-  Star,
   User,
   MessageSquare,
 } from "lucide-react";
@@ -24,7 +23,6 @@ const KanbanBoard = ({
   onStatusChange,
   onScheduleInterview,
   onMessage,
-  getMatchScoreBadge,
   getKanbanStage,
   unreadMessageCounts = {},
 }) => {
@@ -120,8 +118,7 @@ const KanbanBoard = ({
           </div>
         </div>
 
-        {/* Match Score */}
-        <div className="mb-3">{getMatchScoreBadge(applicant.matchScore)}</div>
+        {/* Removed Match Score */}
 
         {/* Actions */}
         <div className="flex gap-2">

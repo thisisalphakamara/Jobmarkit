@@ -22,6 +22,28 @@
   display: none;
 }
 
+/* Re-enable and style scrollbars where needed */
+.custom-scrollbar {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af #f3f4f6; /* thumb, track */
+}
+.custom-scrollbar::-webkit-scrollbar {
+  display: block; /* override the global hide */
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f3f4f6; /* gray-100 */
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #9ca3af; /* gray-400 */
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280; /* gray-500 */
+}
+
 .rich-text {
   font-size: 15px;
   color: #7a7b7d;

@@ -50,7 +50,7 @@ const ViewApplications = () => {
   const [interviewTime, setInterviewTime] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
   const [interviewLocation, setInterviewLocation] = useState("");
-  const [sortBy, setSortBy] = useState("matchScore");
+  const [sortBy, setSortBy] = useState("date");
   const [viewMode, setViewMode] = useState("table"); // "table" or "kanban"
   const [draggedApplicant, setDraggedApplicant] = useState(null);
   const [showMessagingModal, setShowMessagingModal] = useState(false);
@@ -1078,13 +1078,8 @@ const ViewApplications = () => {
             (app) => app.userId && app.jobId
           );
 
-          const applicantsWithScores = await Promise.all(
-            validApplications.map(async (applicant) => ({
-              ...applicant,
-              matchScore: await calculateMatchScore(applicant, applicant.jobId),
-            }))
-          );
-          setApplicants(applicantsWithScores);
+          // Set applicants directly without calculating match scores
+          setApplicants(validApplications);
         } else {
           toast.error(data.message);
         }
@@ -1305,12 +1300,11 @@ const ViewApplications = () => {
     .sort((a, b) => {
       if (sortBy === "applicantName") {
         return (a.userId?.name || "").localeCompare(b.userId?.name || "");
-      } else if (sortBy === "date") {
+      } else {
+        // Default to date applied
         return (
           new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
         );
-      } else {
-        return b.matchScore - a.matchScore;
       }
     });
 
@@ -1560,9 +1554,8 @@ const ViewApplications = () => {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent outline-none text-sm"
                 >
-                  <option value="matchScore">Match Score</option>
                   <option value="date">Date Applied</option>
-                  <option value="name">Name</option>
+                  <option value="applicantName">Name</option>
                 </select>
               </div>
             </div>
@@ -1584,7 +1577,6 @@ const ViewApplications = () => {
                   setSelectedApplicantForMessaging(applicant);
                   setShowMessagingModal(true);
                 }}
-                getMatchScoreBadge={getMatchScoreBadge}
                 getKanbanStage={getKanbanStage}
                 unreadMessageCounts={unreadMessageCounts}
               />
@@ -1629,12 +1621,7 @@ const ViewApplications = () => {
                       <th className="py-3 px-3 text-left font-semibold text-sm">
                         Status
                       </th>
-                      <th className="py-3 px-3 text-left font-semibold text-sm">
-                        <div className="flex items-center gap-2">
-                          <Star size={14} />
-                          <span>Match Score</span>
-                        </div>
-                      </th>
+                      
                       <th className="py-3 px-3 text-left font-semibold text-sm">
                         <div className="flex items-center gap-1">
                           <MessageSquare size={14} />
@@ -1862,9 +1849,7 @@ const ViewApplications = () => {
                               getStatusBadge(applicant.status)
                             )}
                           </td>
-                          <td className="py-3 px-3">
-                            {getMatchScoreBadge(applicant.matchScore)}
-                          </td>
+                          
                           <td className="py-3 px-3">
                             <button
                               onClick={() => {

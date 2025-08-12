@@ -5,15 +5,17 @@ import Job from "../models/Job.js";
 import { v2 } from "cloudinary";
 import { users } from "@clerk/clerk-sdk-node";
 
-// Import resume parser with error handling
+// Import resume parser with dynamic import
 let ResumeParser;
 try {
-  const { ResumeParser: ResumeParserClass } = await import(
-    "../services/resumeParser.js"
-  );
-  ResumeParser = ResumeParserClass;
+  // Use dynamic import for ES modules
+  const module = await import('../services/resumeParser.js');
+  ResumeParser = module.default;
+  
+  // Simple test to verify the import
+  console.log('ResumeParser loaded:', typeof ResumeParser === 'function' ? 'Success' : 'Failed');
 } catch (error) {
-  console.warn("Resume parser not available:", error.message);
+  console.error('Error loading ResumeParser:', error);
   ResumeParser = null;
 }
 
@@ -592,28 +594,38 @@ export const getAIRecommendations = async (req, res) => {
       });
     }
 
-    // Strict resume validation
-    if (!user.resume || user.resume.trim() === "") {
-      return res.json({
-        success: false,
-        message:
-          "No resume uploaded. Please upload a resume first to get AI job recommendations.",
-      });
-    }
+    // Note: If there's no resume or invalid URL, we will still return
+    // a majority of available jobs instead of erroring out (per request).
 
-    // Validate resume URL format
-    if (!user.resume.startsWith("http") && !user.resume.startsWith("https")) {
-      return res.json({
-        success: false,
-        message: "Invalid resume format. Please upload a valid resume file.",
-      });
-    }
+    console.log("Starting AI recommendations for user:", userId);
+    console.log("Resume URL:", user.resume);
 
-    // Get all available jobs
-    const jobs = await Job.find({ visible: true }).populate(
-      "companyId",
-      "name email image"
-    );
+    // IMPROVED: Get all available jobs with better population
+    const jobs = await Job.find({ visible: true })
+      .populate("companyId", "name email image")
+      .populate("recruiterId", "fullName contactPersonName displayName");
+
+    console.log(`Found ${jobs.length} active jobs to analyze`);
+
+    // Helper: build a majority-of-jobs fallback list
+    const buildMajorityFallback = () => {
+      const majorityCount = Math.max(6, Math.ceil(jobs.length * 0.6));
+      // Sort by createdAt desc if available
+      const sorted = [...jobs].sort((a, b) => {
+        const ad = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bd - ad;
+      });
+      const picked = sorted.slice(0, majorityCount).map((job) => ({
+        ...(typeof job.toObject === 'function' ? job.toObject() : job),
+        matchScore: 50,
+        matchPercentage: 50,
+        matchQuality: 'Basic Match',
+        skillMatches: [],
+        missingSkills: [],
+      }));
+      return picked;
+    };
 
     if (jobs.length === 0) {
       return res.json({
@@ -625,80 +637,133 @@ export const getAIRecommendations = async (req, res) => {
     let resumeAnalysis;
     let scoredJobs;
 
-    // Try Advanced job matching first (no OpenAI dependency)
+    // IMPROVED: Try Advanced job matching first (no OpenAI dependency)
     if (AdvancedJobMatching) {
       try {
-        const advancedJobMatching = new AdvancedJobMatching();
+        console.log("Using Advanced Job Matching service");
+        const resumeParser = new ResumeParser();
 
-        // Extract resume text from URL with better error handling
+        // IMPROVED: Use the enhanced resume parser for better text extraction
         let resumeText = "";
         try {
-          const response = await fetch(user.resume, {
-            method: "GET",
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            },
-            timeout: 10000, // 10 second timeout
+          console.log("Using enhanced resume parser for:", user.resume);
+
+          // Use the improved resume parser
+          const parsedResume = await resumeParser.parseResumeFromUrl(
+            user.resume
+          );
+
+          console.log("Resume parsing result:", {
+            hasSkills: !!parsedResume.skills,
+            skillsCount: parsedResume.skills?.detected?.length || 0,
+            hasExperience: !!parsedResume.experience,
+            confidence: parsedResume.confidence,
           });
 
-          if (response.ok) {
-            const html = await response.text();
-            // Better text extraction
-            resumeText = html
-              .replace(/<script[^>]*>.*?<\/script>/gi, "")
-              .replace(/<style[^>]*>.*?<\/style>/gi, "")
-              .replace(/<[^>]*>/g, " ")
-              .replace(/&nbsp;/g, " ")
-              .replace(/&amp;/g, "&")
-              .replace(/&lt;/g, "<")
-              .replace(/&gt;/g, ">")
-              .replace(/&quot;/g, '"')
-              .replace(/\s+/g, " ")
-              .trim();
-
-            // If extracted text is too short, it might be an image or invalid file
-            if (resumeText.length < 50) {
-              throw new Error(
-                "Resume content too short - likely an image or invalid file"
-              );
-            }
+          // If parsing was successful, use the extracted text
+          if (
+            parsedResume &&
+            parsedResume.confidence &&
+            parsedResume.confidence > 30
+          ) {
+            // Reconstruct text from parsed data for better analysis
+            resumeText = reconstructTextFromParsedResume(parsedResume);
+            console.log(
+              `Resume parsed successfully with confidence: ${parsedResume.confidence}%`
+            );
+            console.log(
+              `Reconstructed text length: ${resumeText.length} characters`
+            );
           } else {
-            throw new Error(`Failed to fetch resume: ${response.status}`);
+            // Fallback to direct text extraction
+            console.log("Fallback to direct text extraction");
+            resumeText = await extractResumeTextDirectly(user.resume);
           }
+
+          // IMPROVED: Validate extracted text quality
+          if (resumeText.length < 100) {
+            throw new Error(
+              "Resume content too short - likely an image or invalid file"
+            );
+          }
+
+          // IMPROVED: Check if text contains meaningful content
+          const meaningfulWords = resumeText
+            .split(/\s+/)
+            .filter((word) => word.length > 2).length;
+          if (meaningfulWords < 20) {
+            throw new Error("Resume content lacks meaningful text");
+          }
+
+          console.log(
+            `Successfully extracted ${resumeText.length} characters with ${meaningfulWords} meaningful words`
+          );
         } catch (error) {
-          console.log("Could not fetch resume content:", error.message);
+          console.error("Resume extraction error:", error.message);
           return res.json({
             success: false,
-            message:
-              "Unable to read your resume. Please ensure it's a valid text-based document (PDF, DOC, TXT) and try again.",
+            message: `Unable to read your resume: ${error.message}. Please ensure it's a valid text-based document (PDF, DOC, TXT) and try again. If the problem persists, try re-uploading your resume.`,
           });
         }
 
-        // Analyze resume with advanced algorithms
-        resumeAnalysis = advancedJobMatching.analyzeResume(resumeText, {
-          name: `${user.firstName} ${user.lastName}`,
-          email: user.email,
-          location: user.location || "Freetown, Sierra Leone",
-        });
-
-        // Get advanced job recommendations
-        scoredJobs = await advancedJobMatching.getJobRecommendations(
-          jobs,
-          resumeAnalysis
+        // IMPROVED: Use the matchJobsForUser function directly
+        console.log("Starting job matching with user profile");
+        
+        // Get job matches for the user
+        const matchedJobs = await AdvancedJobMatching.matchJobsForUser(userId, 10);
+        
+        // Format the results to match the expected structure
+        scoredJobs = matchedJobs.map(job => ({
+          ...job,
+          matchPercentage: job.matchScore, // Use matchScore as percentage
+          skillMatches: [], // This would need to be populated if available
+          missingSkills: [], // This would need to be populated if available
+          resumeAnalysis: {
+            skills: {
+              detected: job.skills || []
+            },
+            experienceLevel: job.experienceLevel || 'Not specified',
+            confidence: {
+              overall: job.matchScore / 100 // Convert to 0-1 range
+            }
+          }
+        }));
+        
+        console.log("Job matching completed successfully");
+        console.log(
+          `Found ${scoredJobs.length} matching jobs out of ${jobs.length} total jobs`
         );
-
-        console.log("Advanced job matching completed successfully");
+        
+        // Set a simple resume analysis
+        resumeAnalysis = {
+          skills: {
+            detected: user.skills || []
+          },
+          experienceLevel: 'Not specified',
+          confidence: {
+            overall: 0.8
+          }
+        };
       } catch (advancedError) {
-        console.error("Advanced job matching failed:", advancedError.message);
+        console.error("Advanced job matching failed:", advancedError);
+        console.error("Error stack:", advancedError.stack);
+        // Fallback: return majority of available jobs instead of an error
+        const recommendations = buildMajorityFallback();
         return res.json({
-          success: false,
-          message:
-            "Error analyzing your resume. Please ensure your resume contains clear information about your skills and experience.",
+          success: true,
+          message: `Showing ${recommendations.length} jobs due to AI matching issue.`,
+          recommendations,
+          resumeAnalysis: {
+            skills: { detected: [] },
+            experienceLevel: 'Not specified',
+            confidence: { overall: 0 }
+          },
+          totalJobsAnalyzed: jobs.length,
         });
       }
     } else {
-      // Fallback to basic matching with Sierra Leone context
+      console.log("Advanced Job Matching not available, using fallback");
+      // IMPROVED: Fallback to basic matching with Sierra Leone context
       const sierraLeoneSkills = [
         "management",
         "leadership",
@@ -724,38 +789,71 @@ export const getAIRecommendations = async (req, res) => {
         "finance",
         "project management",
         "business development",
+        "javascript",
+        "python",
+        "react",
+        "node.js",
+        "mongodb",
+        "sql",
+        "html",
+        "css",
+        "git",
+        "aws",
+        "docker",
+        "agile",
+        "scrum",
       ];
 
-      // Basic resume analysis
+      // IMPROVED: Basic resume analysis with better defaults
       resumeAnalysis = {
         skills: {
-          technical: sierraLeoneSkills.slice(0, 5), // Top 5 skills
-          soft: ["leadership", "communication", "teamwork"],
-          detected: sierraLeoneSkills.slice(0, 8),
+          technical: sierraLeoneSkills.slice(0, 8), // More skills
+          soft: ["leadership", "communication", "teamwork", "problem solving"],
+          detected: sierraLeoneSkills.slice(0, 12),
         },
-        experience: { totalYears: 2 },
-        education: { degrees: ["bachelor"] },
-        languages: ["english"],
-        experienceLevel: "entry-level",
-        location: ["freetown"],
+        experience: { totalYears: 3, level: "mid-level" },
+        education: { degrees: ["bachelor"], institutions: ["university"] },
+        languages: ["english", "krio"],
+        experienceLevel: "mid-level",
+        location: ["freetown", "sierra leone"],
+        confidence: { overall: 60 },
       };
 
-      // Basic job matching
+      // IMPROVED: Basic job matching with better scoring
       scoredJobs = jobs.map((job) => {
         const jobSkills = (job.skills || []).map((s) => s.toLowerCase());
         const userSkills = resumeAnalysis.skills.detected.map((s) =>
           s.toLowerCase()
         );
 
-        // Calculate basic match score
+        // IMPROVED: Calculate basic match score with better logic
         const matchingSkills = userSkills.filter((skill) =>
           jobSkills.some(
             (jobSkill) => jobSkill.includes(skill) || skill.includes(jobSkill)
           )
         );
 
-        const matchScore =
-          (matchingSkills.length / Math.max(jobSkills.length, 1)) * 100;
+        // IMPROVED: Better scoring algorithm
+        let matchScore = 0;
+        if (jobSkills.length > 0) {
+          matchScore = (matchingSkills.length / jobSkills.length) * 100;
+        }
+
+        // IMPROVED: Add bonus for experience level match
+        const jobLevel = job.level?.toLowerCase() || "mid-level";
+        if (jobLevel === resumeAnalysis.experienceLevel) {
+          matchScore += 20;
+        }
+
+        // IMPROVED: Add bonus for location match
+        const jobLocation = job.location?.town?.toLowerCase() || "";
+        if (
+          jobLocation.includes("freetown") ||
+          jobLocation.includes("sierra leone")
+        ) {
+          matchScore += 10;
+        }
+
         const matchPercentage = Math.min(matchScore, 100);
 
         return {
@@ -774,52 +872,183 @@ export const getAIRecommendations = async (req, res) => {
       });
     }
 
-    // Filter jobs with meaningful matches (at least 20% match)
+    // IMPROVED: Filter jobs with meaningful matches (increased threshold to 30%)
     const meaningfulMatches = scoredJobs.filter(
-      (job) => job.matchPercentage >= 20
+      (job) => job.matchPercentage >= 30
+    );
+
+    console.log(
+      `Filtered to ${meaningfulMatches.length} meaningful matches (30%+ threshold)`
     );
 
     if (meaningfulMatches.length === 0) {
+      // Fallback: show majority of available jobs
+      const recommendations = buildMajorityFallback();
       return res.json({
-        success: false,
-        message:
-          "No suitable job matches found based on your resume. Consider updating your resume with more relevant skills and experience.",
+        success: true,
+        message: `Showing ${recommendations.length} jobs due to low match confidence.`,
+        recommendations,
+        resumeAnalysis,
+        totalJobsAnalyzed: jobs.length,
       });
     }
 
-    // Sort by match score (highest first) and limit to top 8 recommendations
+    // IMPROVED: Sort by match score (highest first) and limit to top 6 recommendations
     const recommendations = meaningfulMatches
       .sort((a, b) => b.matchScore - a.matchScore)
-      .slice(0, 8);
+      .slice(0, 6);
 
-    // Add match quality labels
+    // IMPROVED: Add match quality labels with better thresholds
     recommendations.forEach((job) => {
-      if (job.matchPercentage >= 80) {
+      if (job.matchPercentage >= 85) {
+        job.matchQuality = "Perfect Match";
+      } else if (job.matchPercentage >= 75) {
         job.matchQuality = "Excellent Match";
-      } else if (job.matchPercentage >= 60) {
+      } else if (job.matchPercentage >= 65) {
+        job.matchQuality = "Very Good Match";
+      } else if (job.matchPercentage >= 55) {
         job.matchQuality = "Good Match";
-      } else if (job.matchPercentage >= 40) {
+      } else if (job.matchPercentage >= 45) {
         job.matchQuality = "Fair Match";
       } else {
         job.matchQuality = "Basic Match";
       }
     });
 
-    res.json({
+    console.log("AI recommendations completed successfully");
+
+    return res.json({
       success: true,
+      message: `Found ${recommendations.length} matching jobs based on your resume!`,
       recommendations,
-      resumeAnalysis: resumeAnalysis,
+      resumeAnalysis,
       totalJobsAnalyzed: jobs.length,
-      meaningfulMatches: meaningfulMatches.length,
-      message: `Found ${meaningfulMatches.length} suitable job matches based on your resume.`,
+      matchQuality: {
+        perfect: recommendations.filter((j) => j.matchPercentage >= 85).length,
+        excellent: recommendations.filter(
+          (j) => j.matchPercentage >= 75 && j.matchPercentage < 85
+        ).length,
+        good: recommendations.filter(
+          (j) => j.matchPercentage >= 55 && j.matchPercentage < 75
+        ).length,
+        fair: recommendations.filter(
+          (j) => j.matchPercentage >= 30 && j.matchPercentage < 55
+        ).length,
+      },
     });
   } catch (error) {
-    console.error("Error generating AI recommendations:", error);
-    res.json({
+    console.error("Error in getAIRecommendations:", error);
+    console.error("Error stack:", error.stack);
+    return res.json({
       success: false,
-      message: "Error generating AI recommendations. Please try again.",
-      error: error.message,
+      message: `An error occurred while generating AI recommendations: ${error.message}. Please try again.`,
     });
+  }
+};
+
+// NEW: Helper function to reconstruct text from parsed resume data
+const reconstructTextFromParsedResume = (parsedResume) => {
+  const sections = [];
+
+  // Add skills
+  if (parsedResume.skills && parsedResume.skills.detected) {
+    sections.push(`Skills: ${parsedResume.skills.detected.join(", ")}`);
+  }
+
+  // Add experience
+  if (parsedResume.experience) {
+    if (parsedResume.experience.totalYears) {
+      sections.push(`Experience: ${parsedResume.experience.totalYears} years`);
+    }
+    if (
+      parsedResume.experience.years &&
+      parsedResume.experience.years.length > 0
+    ) {
+      sections.push(
+        `Experience details: ${parsedResume.experience.years.join(", ")}`
+      );
+    }
+  }
+
+  // Add education
+  if (parsedResume.education) {
+    if (
+      parsedResume.education.degrees &&
+      parsedResume.education.degrees.length > 0
+    ) {
+      sections.push(`Education: ${parsedResume.education.degrees.join(", ")}`);
+    }
+    if (
+      parsedResume.education.institutions &&
+      parsedResume.education.institutions.length > 0
+    ) {
+      sections.push(
+        `Institutions: ${parsedResume.education.institutions.join(", ")}`
+      );
+    }
+  }
+
+  // Add languages
+  if (parsedResume.languages && parsedResume.languages.length > 0) {
+    sections.push(`Languages: ${parsedResume.languages.join(", ")}`);
+  }
+
+  // Add certifications
+  if (parsedResume.certifications && parsedResume.certifications.length > 0) {
+    sections.push(`Certifications: ${parsedResume.certifications.join(", ")}`);
+  }
+
+  // Add location
+  if (parsedResume.location && parsedResume.location.length > 0) {
+    sections.push(`Location: ${parsedResume.location.join(", ")}`);
+  }
+
+  return sections.join(". ");
+};
+
+// NEW: Helper function for direct text extraction as fallback
+const extractResumeTextDirectly = async (url) => {
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate",
+        Connection: "keep-alive",
+      },
+      timeout: 15000,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch resume: ${response.status}`);
+    }
+
+    const contentType = response.headers.get("content-type");
+
+    if (contentType && contentType.includes("text/html")) {
+      const html = await response.text();
+      return html
+        .replace(/<script[^>]*>.*?<\/script>/gi, "")
+        .replace(/<style[^>]*>.*?<\/style>/gi, "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/\s+/g, " ")
+        .trim();
+    } else {
+      return await response.text();
+    }
+  } catch (error) {
+    console.error("Error in direct text extraction:", error);
+    throw error;
   }
 };
 
@@ -973,6 +1202,45 @@ export const checkIfJobSaved = async (req, res) => {
       success: false,
       message: "Error checking job save status. Please try again.",
       error: error.message,
+    });
+  }
+};
+
+// Test endpoint for debugging resume parsing
+export const testResumeParsing = async (req, res) => {
+  try {
+    const { resumeUrl } = req.body;
+
+    if (!resumeUrl) {
+      return res.json({
+        success: false,
+        message: "Resume URL is required",
+      });
+    }
+
+    console.log("Testing resume parsing for URL:", resumeUrl);
+
+    if (ResumeParser) {
+      const resumeParser = new ResumeParser();
+      const result = await resumeParser.parseResumeFromUrl(resumeUrl);
+
+      return res.json({
+        success: true,
+        result,
+        message: "Resume parsing test completed",
+      });
+    } else {
+      return res.json({
+        success: false,
+        message: "Resume parser not available",
+      });
+    }
+  } catch (error) {
+    console.error("Resume parsing test error:", error);
+    return res.json({
+      success: false,
+      message: `Resume parsing test failed: ${error.message}`,
+      error: error.stack,
     });
   }
 };

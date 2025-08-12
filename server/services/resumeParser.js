@@ -1,640 +1,279 @@
-import fs from "fs";
+import fs from 'fs';
+import path from 'path';
+import fetch from 'node-fetch';
+import pdfParse from 'pdf-parse';
+import mammoth from 'mammoth';
+import natural from 'natural';
 
-// Try to import dependencies, but don't fail if they're not available
-let pdf, natural, nlp;
+const { WordTokenizer, PorterStemmer } = natural.default || natural;
+const tokenizer = new WordTokenizer();
 
-try {
-  const pdfModule = await import("pdf-parse");
-  pdf = pdfModule.default;
-} catch (error) {
-  console.warn("pdf-parse not available:", error.message);
-}
-
-try {
-  natural = await import("natural");
-} catch (error) {
-  console.warn("natural not available:", error.message);
-}
-
-try {
-  const nlpModule = await import("compromise");
-  nlp = nlpModule.default;
-} catch (error) {
-  console.warn("compromise not available:", error.message);
-}
-
-// Initialize natural language processing with fallback
-let tokenizer, TfIdf;
-if (natural) {
-  tokenizer = new natural.WordTokenizer();
-  TfIdf = natural.TfIdf;
-}
-
-// Common skills database for Sierra Leone context
-const skillKeywords = {
-  technical: [
-    "javascript",
-    "python",
-    "java",
-    "react",
-    "node.js",
-    "mongodb",
-    "sql",
-    "html",
-    "css",
-    "php",
-    "c#",
-    "c++",
-    "ruby",
-    "swift",
-    "kotlin",
-    "docker",
-    "kubernetes",
-    "aws",
-    "azure",
-    "git",
-    "github",
-    "agile",
-    "scrum",
-    "devops",
-    "machine learning",
-    "ai",
-    "data analysis",
-    "excel",
-    "powerpoint",
-    "word",
-    "photoshop",
-    "illustrator",
-    "figma",
-    "sketch",
-    "wordpress",
-    "shopify",
-    "salesforce",
-    "quickbooks",
-    "sage",
-    "peachtree",
-  ],
-  soft: [
-    "leadership",
-    "communication",
-    "teamwork",
-    "problem solving",
-    "critical thinking",
-    "time management",
-    "organization",
-    "adaptability",
-    "creativity",
-    "initiative",
-    "customer service",
-    "sales",
-    "marketing",
-    "project management",
-    "negotiation",
-    "public speaking",
-    "presentation",
-    "mentoring",
-    "training",
-    "coaching",
-  ],
-  languages: [
-    "english",
-    "krio",
-    "temne",
-    "mende",
-    "limba",
-    "french",
-    "arabic",
-    "mandarin",
-    "spanish",
-    "portuguese",
-    "german",
-    "italian",
-    "swahili",
-    "yoruba",
-    "igbo",
-  ],
-  certifications: [
-    "certified",
-    "certification",
-    "diploma",
-    "degree",
-    "bachelor",
-    "master",
-    "phd",
-    "microsoft",
-    "cisco",
-    "comptia",
-    "aws",
-    "google",
-    "oracle",
-    "ibm",
-    "salesforce",
-  ],
-};
-
-// Experience level keywords
-const experienceKeywords = {
-  "entry level": [
-    "entry",
-    "junior",
-    "graduate",
-    "intern",
-    "trainee",
-    "assistant",
-    "0-1 years",
-    "1 year",
-  ],
-  junior: ["junior", "associate", "1-3 years", "2 years", "3 years"],
-  "mid-level": [
-    "mid",
-    "intermediate",
-    "3-5 years",
-    "4 years",
-    "5 years",
-    "senior associate",
-  ],
-  senior: ["senior", "lead", "5-8 years", "6 years", "7 years", "8 years"],
-  executive: [
-    "executive",
-    "director",
-    "manager",
-    "head",
-    "chief",
-    "vp",
-    "8+ years",
-    "10 years",
-  ],
-};
-
-// Education keywords
-const educationKeywords = [
-  "university",
-  "college",
-  "school",
-  "institute",
-  "academy",
-  "bachelor",
-  "master",
-  "phd",
-  "diploma",
-  "certificate",
-  "degree",
-  "graduated",
-  "studied",
-  "major",
-  "minor",
-];
-
-// Sierra Leone specific institutions
-const sierraLeoneInstitutions = [
-  "fourah bay college",
-  "njala university",
-  "university of sierra leone",
-  "usl",
-  "milton margai college",
-  "mmcet",
-  "polytechnic",
-  "limkokwing",
-  "africanus",
-  "college of medicine",
-  "college of agriculture",
-  "college of engineering",
-];
-
-export class ResumeParser {
+class ResumeParser {
   constructor() {
-    this.tfidf = TfIdf ? new TfIdf() : null;
-  }
-
-  async parseResume(filePath) {
-    try {
-      if (!pdf) {
-        console.warn("PDF parsing not available, using default analysis");
-        return this.getDefaultResumeAnalysis();
-      }
-
-      const dataBuffer = fs.readFileSync(filePath);
-      const data = await pdf(dataBuffer);
-      const text = data.text.toLowerCase();
-
-      return this.extractInformation(text);
-    } catch (error) {
-      console.error("Error parsing resume:", error);
-      // Return a default analysis if parsing fails
-      return this.getDefaultResumeAnalysis();
-    }
-  }
-
-  async parseResumeFromBuffer(buffer) {
-    try {
-      if (!pdf) {
-        console.warn("PDF parsing not available, using default analysis");
-        return this.getDefaultResumeAnalysis();
-      }
-
-      const data = await pdf(buffer);
-      const text = data.text.toLowerCase();
-
-      return this.extractInformation(text);
-    } catch (error) {
-      console.error("Error parsing resume from buffer:", error);
-      // Return a default analysis if parsing fails
-      return this.getDefaultResumeAnalysis();
-    }
-  }
-
-  // Default resume analysis for when parsing fails
-  getDefaultResumeAnalysis() {
-    return {
+    this.skills = [];
+    this.experience = [];
+    this.education = [];
+    this.contact = {};
+    this.defaultResumeAnalysis = {
       skills: {
-        technical: ["javascript", "react", "node.js", "mongodb", "html", "css"],
-        soft: ["leadership", "communication", "teamwork", "problem solving"],
-        detected: [
-          "javascript",
-          "react",
-          "node.js",
-          "mongodb",
-          "html",
-          "css",
-          "leadership",
-          "communication",
-          "teamwork",
-          "problem solving",
-        ],
+        technical: [],
+        soft: [],
+        detected: []
       },
-      experience: {
-        years: ["3 years of experience"],
-        titles: ["developer", "senior"],
-        totalYears: 3,
-      },
-      education: {
-        institutions: ["fourah bay college"],
-        degrees: ["bachelor"],
-        fields: ["computer science"],
-      },
-      languages: ["english", "krio"],
-      certifications: ["microsoft certified"],
-      experienceLevel: "mid-level",
-      location: ["freetown", "sierra leone"],
-      summary: {
-        hasTechnicalSkills: true,
-        hasSoftSkills: true,
-        experienceYears: 3,
-        hasHigherEducation: true,
-        skillCount: 10,
-        isExperienced: true,
-      },
+      experience: { totalYears: 0 },
+      education: { degrees: [] },
+      languages: [],
+      experienceLevel: '',
+      location: []
     };
   }
 
-  extractInformation(text) {
-    const doc = nlp ? nlp(text) : null;
+  /**
+   * Parse a resume file (PDF or DOCX)
+   * @param {Buffer} fileBuffer - The file buffer to parse
+   * @param {string} fileName - The name of the file (used to determine file type)
+   * @returns {Promise<Object>} - Parsed resume data
+   */
+  async parseResume(fileBuffer, fileName) {
+    try {
+      const fileExt = path.extname(fileName).toLowerCase();
+      let text = '';
 
-    return {
-      skills: this.extractSkills(text),
-      experience: this.extractExperience(text),
-      education: this.extractEducation(text),
-      languages: this.extractLanguages(text),
-      certifications: this.extractCertifications(text),
-      experienceLevel: this.determineExperienceLevel(text),
-      location: this.extractLocation(text),
-      summary: this.generateSummary(text),
-    };
+      if (fileExt === '.pdf') {
+        const pdfData = await pdfParse(fileBuffer);
+        text = pdfData.text;
+      } else if (fileExt === '.docx') {
+        const result = await mammoth.extractRawText({ buffer: fileBuffer });
+        text = result.value;
+      } else {
+        throw new Error('Unsupported file format. Please upload a PDF or DOCX file.');
+      }
+
+      // Process the extracted text
+      return this.processText(text);
+    } catch (error) {
+      console.error('Error parsing resume:', error);
+      throw new Error(`Failed to parse resume: ${error.message}`);
+    }
   }
 
-  extractSkills(text) {
-    const skills = {
-      technical: [],
-      soft: [],
-      detected: [],
-    };
-
-    // Extract technical skills
-    skillKeywords.technical.forEach((skill) => {
-      if (text.includes(skill.toLowerCase())) {
-        skills.technical.push(skill);
-        skills.detected.push(skill);
+  /**
+   * Parse a resume from a URL
+   * @param {string} url - The URL of the resume to parse
+   * @returns {Promise<Object>} - Parsed resume data
+   */
+  async parseResumeFromUrl(url) {
+    try {
+      // Fetch the file from the URL
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch resume from URL: ${response.statusText}`);
       }
-    });
-
-    // Extract soft skills
-    skillKeywords.soft.forEach((skill) => {
-      if (text.includes(skill.toLowerCase())) {
-        skills.soft.push(skill);
-        skills.detected.push(skill);
+      
+      // Get the file content as a buffer
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      // Determine file type from URL or content type
+      const contentType = response.headers.get('content-type') || '';
+      let fileExt = path.extname(url).toLowerCase();
+      
+      // If no extension in URL, try to determine from content type
+      if (!fileExt) {
+        if (contentType.includes('pdf')) fileExt = '.pdf';
+        else if (contentType.includes('word') || contentType.includes('document')) fileExt = '.docx';
       }
-    });
+      
+      // Parse the resume using the existing method
+      return this.parseResume(buffer, `resume${fileExt}`);
+    } catch (error) {
+      console.error('Error parsing resume from URL:', error);
+      // Return a default analysis if parsing fails
+      return this.getDefaultResumeAnalysis();
+    }
+  }
 
-    // Use TF-IDF to find additional skills if available
-    if (this.tfidf) {
-      this.tfidf.addDocument(text);
-      const terms = this.tfidf.listTerms(0);
-
-      terms.forEach((term) => {
-        if (term.score > 0.1 && !skills.detected.includes(term.term)) {
-          // Check if it looks like a skill
-          if (this.isLikelySkill(term.term)) {
-            skills.detected.push(term.term);
-          }
-        }
-      });
+  /**
+   * Process the extracted text to extract relevant information
+   * @param {string} text - The extracted text from the resume
+   * @returns {Object} - Structured resume data
+   */
+  processText(text) {
+    if (!text || typeof text !== 'string') {
+      throw new Error('Invalid resume content');
     }
 
-    return skills;
-  }
-
-  extractExperience(text) {
-    const experience = [];
-
-    // Look for years of experience patterns
-    const yearPatterns = [
-      /(\d+)\s*(?:years?|yrs?)\s*(?:of\s*)?experience/gi,
-      /experience\s*(?:of\s*)?(\d+)\s*(?:years?|yrs?)/gi,
-      /(\d+)\s*(?:years?|yrs?)\s*(?:in\s*)?(?:the\s*)?(?:field|industry|sector)/gi,
-    ];
-
-    yearPatterns.forEach((pattern) => {
-      const matches = text.match(pattern);
-      if (matches) {
-        experience.push(...matches);
-      }
-    });
-
-    // Extract job titles
-    const jobTitles = [
-      "manager",
-      "director",
-      "coordinator",
-      "specialist",
-      "analyst",
-      "developer",
-      "engineer",
-      "consultant",
-      "supervisor",
-      "lead",
-      "head",
-      "chief",
-      "vp",
-      "assistant",
-      "associate",
-      "junior",
-      "senior",
-      "executive",
-    ];
-
-    const foundTitles = [];
-    jobTitles.forEach((title) => {
-      if (text.includes(title.toLowerCase())) {
-        foundTitles.push(title);
-      }
-    });
-
-    return {
-      years: experience,
-      titles: foundTitles,
-      totalYears: this.calculateTotalYears(experience),
-    };
-  }
-
-  extractEducation(text) {
-    const education = {
-      institutions: [],
-      degrees: [],
-      fields: [],
+    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+    
+    // Simple extraction logic - this can be enhanced with more sophisticated NLP
+    const result = {
+      skills: this.extractSection(lines, ['skills', 'technical skills', 'key skills']),
+      experience: this.extractSection(lines, ['experience', 'work experience', 'employment history']),
+      education: this.extractSection(lines, ['education', 'academic background']),
+      contact: this.extractContactInfo(lines)
     };
 
-    // Extract Sierra Leone institutions
-    sierraLeoneInstitutions.forEach((institution) => {
-      if (text.includes(institution.toLowerCase())) {
-        education.institutions.push(institution);
+    // Fallback: If no skills found, try to extract from the entire text
+    if (result.skills.length === 0) {
+      result.skills = this.extractSkillsFromText(text);
+    }
+
+    return result;
+  }
+
+  /**
+   * Extract a section from the resume based on common section headers
+   */
+  extractSection(lines, possibleHeaders) {
+    const section = [];
+    let inSection = false;
+    
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase();
+      
+      // Check if this line is a section header
+      if (possibleHeaders.some(header => lowerLine.includes(header))) {
+        inSection = true;
+        continue;
       }
-    });
-
-    // Extract degrees
-    const degreePatterns = [/bachelor|master|phd|diploma|certificate|degree/gi];
-
-    degreePatterns.forEach((pattern) => {
-      const matches = text.match(pattern);
-      if (matches) {
-        education.degrees.push(...matches);
+      
+      // Check if we've hit another section
+      if (inSection && line.trim() === '') {
+        inSection = false;
+        continue;
       }
-    });
+      
+      if (inSection && line.trim()) {
+        section.push(line.trim());
+      }
+    }
+    
+    return section;
+  }
 
-    // Extract fields of study
-    const fieldPatterns = [
-      /computer science|engineering|business|economics|medicine|law|arts|science/gi,
+  /**
+   * Extract contact information from the resume
+   */
+  extractContactInfo(lines) {
+    const contact = {};
+    const emailRegex = /[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}/;
+    const phoneRegex = /(\+\d{1,3}[- ]?)?\d{10,}/;
+    
+    for (const line of lines) {
+      // Check for email
+      const emailMatch = line.match(emailRegex);
+      if (emailMatch && !contact.email) {
+        contact.email = emailMatch[0];
+      }
+      
+      // Check for phone
+      const phoneMatch = line.match(phoneRegex);
+      if (phoneMatch && !contact.phone) {
+        contact.phone = phoneMatch[0];
+      }
+      
+      // Check for name (first non-empty line is often the name)
+      if (line.trim() && !contact.name && !emailMatch && !phoneMatch) {
+        contact.name = line.trim();
+      }
+    }
+    
+    return contact;
+  }
+
+  /**
+   * Extract skills from the entire text using keyword matching
+   */
+  extractSkillsFromText(text) {
+    // Common technical skills to look for
+    const commonSkills = [
+      'javascript', 'python', 'java', 'c++', 'c#', 'ruby', 'php', 'swift', 'kotlin',
+      'react', 'angular', 'vue', 'node.js', 'express', 'django', 'flask', 'spring',
+      'sql', 'mongodb', 'postgresql', 'mysql', 'aws', 'azure', 'docker', 'kubernetes',
+      'git', 'rest api', 'graphql', 'typescript', 'html', 'css', 'sass', 'less'
     ];
-
-    fieldPatterns.forEach((pattern) => {
-      const matches = text.match(pattern);
-      if (matches) {
-        education.fields.push(...matches);
-      }
+    
+    const tokens = tokenizer.tokenize(text.toLowerCase()) || [];
+    const stemmedTokens = tokens.map(token => PorterStemmer.stem(token));
+    
+    return commonSkills.filter(skill => {
+      const skillWords = skill.split(/[^a-z0-9]/).filter(Boolean);
+      return skillWords.every(word => 
+        stemmedTokens.includes(PorterStemmer.stem(word))
+      );
     });
-
-    return education;
   }
 
-  extractLanguages(text) {
-    const languages = [];
-
-    skillKeywords.languages.forEach((language) => {
-      if (text.includes(language.toLowerCase())) {
-        languages.push(language);
-      }
-    });
-
-    return languages;
+  /**
+   * Get a default resume analysis object
+   * @returns {Object} Default resume analysis
+   */
+  getDefaultResumeAnalysis() {
+    return JSON.parse(JSON.stringify(this.defaultResumeAnalysis));
   }
 
-  extractCertifications(text) {
-    const certifications = [];
-
-    skillKeywords.certifications.forEach((cert) => {
-      if (text.includes(cert.toLowerCase())) {
-        certifications.push(cert);
-      }
-    });
-
-    return certifications;
-  }
-
-  determineExperienceLevel(text) {
-    let maxLevel = "entry level";
-    let maxScore = 0;
-
-    Object.entries(experienceKeywords).forEach(([level, keywords]) => {
-      let score = 0;
-      keywords.forEach((keyword) => {
-        if (text.includes(keyword.toLowerCase())) {
-          score += 1;
-        }
-      });
-
-      if (score > maxScore) {
-        maxScore = score;
-        maxLevel = level;
-      }
-    });
-
-    return maxLevel;
-  }
-
-  extractLocation(text) {
-    const sierraLeoneLocations = [
-      "freetown",
-      "bo",
-      "kenema",
-      "makeni",
-      "koidu",
-      "port loko",
-      "kailahun",
-      "kambia",
-      "pujehun",
-      "tonkolili",
-      "bonthe",
-      "kono",
-      "moyamba",
-      "koinadugu",
-      "falaba",
-      "sierra leone",
-      "western area",
-      "southern province",
-      "eastern province",
-      "northern province",
-    ];
-
-    const foundLocations = [];
-    sierraLeoneLocations.forEach((location) => {
-      if (text.includes(location.toLowerCase())) {
-        foundLocations.push(location);
-      }
-    });
-
-    return foundLocations;
-  }
-
-  generateSummary(text) {
-    // Extract key information for summary
-    const skills = this.extractSkills(text);
-    const experience = this.extractExperience(text);
-    const education = this.extractEducation(text);
-
-    const summary = {
-      hasTechnicalSkills: skills.technical.length > 0,
-      hasSoftSkills: skills.soft.length > 0,
-      experienceYears: experience.totalYears,
-      hasHigherEducation: education.degrees.length > 0,
-      skillCount: skills.detected.length,
-      isExperienced: experience.totalYears >= 3,
-    };
-
-    return summary;
-  }
-
-  isLikelySkill(term) {
-    // Simple heuristic to determine if a term is likely a skill
-    const skillIndicators = [
-      "ing",
-      "tion",
-      "ment",
-      "ship",
-      "ness",
-      "ity",
-      "ance",
-      "ence",
-    ];
-
-    return (
-      skillIndicators.some((indicator) =>
-        term.toLowerCase().endsWith(indicator)
-      ) || term.length > 3
-    );
-  }
-
-  calculateTotalYears(experience) {
-    let total = 0;
-    experience.forEach((exp) => {
-      const match = exp.match(/(\d+)/);
-      if (match) {
-        total += parseInt(match[1]);
-      }
-    });
-    return total;
-  }
-
-  // Calculate job match score based on resume analysis
+  /**
+   * Calculate job match score based on resume data
+   * @param {Object} job - Job object to match against
+   * @param {Object} resumeData - Parsed resume data
+   * @returns {Object} Match results
+   */
   calculateJobMatchScore(job, resumeData) {
-    let score = 0;
-    let maxScore = 100;
-    let skillMatches = [];
-    let missingSkills = [];
+    try {
+      // Default values
+      const result = {
+        score: 0,
+        percentage: 0,
+        skillMatches: [],
+        missingSkills: []
+      };
 
-    // Skills matching (40 points)
-    if (job.skills && resumeData.skills.detected.length > 0) {
-      const jobSkills = job.skills.map((skill) => skill.toLowerCase());
-      const resumeSkills = resumeData.skills.detected.map((skill) =>
-        skill.toLowerCase()
-      );
-
-      jobSkills.forEach((skill) => {
-        if (resumeSkills.includes(skill)) {
-          skillMatches.push(skill);
-          score += 40 / jobSkills.length;
-        } else {
-          missingSkills.push(skill);
-        }
-      });
-    }
-
-    // Experience level matching (25 points)
-    const experienceMap = {
-      "entry level": 0,
-      junior: 1,
-      "mid-level": 2,
-      senior: 3,
-      executive: 4,
-    };
-
-    const resumeLevel = experienceMap[resumeData.experienceLevel] || 0;
-    const jobLevel = experienceMap[job.level] || 0;
-
-    if (resumeLevel === jobLevel) {
-      score += 25;
-    } else if (Math.abs(resumeLevel - jobLevel) === 1) {
-      score += 15;
-    } else if (resumeLevel >= jobLevel) {
-      score += 20;
-    }
-
-    // Location matching (20 points)
-    if (resumeData.location.length > 0) {
-      const jobLocation = job.location?.toLowerCase() || "";
-      const hasLocationMatch = resumeData.location.some((loc) =>
-        jobLocation.includes(loc.toLowerCase())
-      );
-
-      if (hasLocationMatch) {
-        score += 20;
-      } else if (jobLocation.includes("remote")) {
-        score += 15;
+      // If no resume data, return default values
+      if (!resumeData) {
+        return result;
       }
-    }
 
-    // Education matching (15 points)
-    if (resumeData.education.degrees.length > 0) {
-      score += 15;
-    }
+      // Get job requirements (convert to lowercase for case-insensitive matching)
+      const jobSkills = (job.skillsRequired || []).map(skill => skill.toLowerCase());
+      const resumeSkills = [
+        ...(resumeData.skills?.technical || []),
+        ...(resumeData.skills?.soft || []),
+        ...(resumeData.skills?.detected || [])
+      ].map(skill => skill.toLowerCase());
 
-    return {
-      score: Math.min(score, maxScore),
-      percentage: Math.round((score / maxScore) * 100),
-      skillMatches,
-      missingSkills,
-      maxScore,
-      resumeAnalysis: resumeData,
-    };
+      // Calculate skill matches
+      result.skillMatches = jobSkills.filter(skill => 
+        resumeSkills.some(resumeSkill => 
+          resumeSkill.includes(skill) || skill.includes(resumeSkill)
+        )
+      );
+
+      // Calculate missing skills
+      result.missingSkills = jobSkills.filter(skill => 
+        !result.skillMatches.includes(skill)
+      );
+
+      // Calculate match percentage
+      if (jobSkills.length > 0) {
+        result.percentage = Math.round((result.skillMatches.length / jobSkills.length) * 100);
+      }
+
+      // Set score (0-100)
+      result.score = result.percentage;
+
+      return result;
+    } catch (error) {
+      console.error('Error calculating job match score:', error);
+      return {
+        score: 0,
+        percentage: 0,
+        skillMatches: [],
+        missingSkills: [],
+        error: error.message
+      };
+    }
   }
 }
 
+// Export as ES module
 export default ResumeParser;

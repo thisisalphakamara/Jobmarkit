@@ -467,12 +467,8 @@ const RecruiterSignUp = ({ onClose, onSwitchToSignIn }) => {
             "Email verified successfully! Welcome to your dashboard."
           );
           if (onClose) onClose();
-          // Route based on recruiter type
-          if (response.data.recruiter.recruiterType === "Company") {
-            navigate("/company-dashboard");
-          } else {
-            navigate("/dashboard");
-          }
+          // Route to unified dashboard
+          navigate("/dashboard");
         }
       } catch (error) {
         console.error("Verification error:", error);

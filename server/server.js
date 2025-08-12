@@ -16,6 +16,7 @@ import interviewRoutes from "./routes/interviewRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import simpleMessageRoutes from "./routes/simpleMessageRoutes.js";
 import translateRoutes from "./routes/translateRoutes.js";
+import aiToolsRoutes from "./routes/aiToolsRoutes.js";
 import recruiterRoutes from "./routes/recruiterRoutes.js";
 import { protectCompany, protectUser } from "./middleware/authMiddleware.js";
 import { createServer } from "http";
@@ -79,6 +80,7 @@ app.use("/api/simple-chat", simpleMessageRoutes);
 
 // Translation routes - no authentication required
 app.use("/api/translate", translateRoutes);
+app.use("/api/ai", aiToolsRoutes);
 
 // Socket.IO event handlers
 io.on("connection", (socket) => {
