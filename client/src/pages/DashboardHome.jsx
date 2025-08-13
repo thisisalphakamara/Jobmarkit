@@ -146,8 +146,19 @@ const DashboardHome = () => {
             color: pipeline[key].color,
           }));
 
-          // Top candidates: pick most recent applicants
-          const topCandidates = [...applications]
+          // Recent applicants: latest applicant per job (unique by jobId)
+          const latestByJob = new Map();
+          for (const app of applications) {
+            const jobKey = app.jobId?._id || app.jobId; // handle populated or id
+            const existing = latestByJob.get(jobKey);
+            if (
+              !existing ||
+              new Date(app.createdAt) > new Date(existing.createdAt)
+            ) {
+              latestByJob.set(jobKey, app);
+            }
+          }
+          const topCandidates = Array.from(latestByJob.values())
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 3);
 
@@ -301,10 +312,10 @@ const DashboardHome = () => {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Top Candidates */}
+        {/* Recent Applicants */}
         <div className="lg:col-span-2">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            Top Candidates
+            Recent Applicants
           </h2>
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
             {stats.topCandidates.length > 0 ? (

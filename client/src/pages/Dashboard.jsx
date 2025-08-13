@@ -38,6 +38,7 @@ const Dashboard = () => {
     totalApplications: 0,
     recentApplications: 0,
   });
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Sync local recruiterData with context recruiterData (updates after profile change)
   useEffect(() => {
@@ -250,7 +251,7 @@ const Dashboard = () => {
         </nav>
         <div className="mt-auto p-3 border-t border-gray-200">
           <button
-            onClick={logout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors w-full"
           >
             <LogOut size={18} />
@@ -303,6 +304,34 @@ const Dashboard = () => {
         <main className="flex-1 p-6">
           <Outlet />
         </main>
+
+        {/* Logout Confirmation Modal */}
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/30"
+              onClick={() => setShowLogoutConfirm(false)}
+            ></div>
+            <div className="relative bg-white rounded-xl shadow-lg border border-gray-200 w-full max-w-sm mx-4 p-5">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirm Logout</h3>
+              <p className="text-sm text-gray-600 mb-4">Are you sure you want to log out?</p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="px-4 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={logout}
+                  className="px-4 py-2 rounded-lg text-sm bg-gray-700 text-white hover:bg-gray-800"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

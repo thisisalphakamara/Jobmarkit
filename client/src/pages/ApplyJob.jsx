@@ -90,14 +90,20 @@ const ApplyJob = () => {
 
   // Find similar jobs
   const findSimilarJobs = (currentJob) => {
+    const normalize = (t) => (t || "").toString().trim().toLowerCase();
+    const getTitle = (job) => job?.title || job?.titleEnglish || job?.titleKrio || "";
+
+    const currentTitle = normalize(getTitle(currentJob));
+    if (!currentTitle) {
+      setSimilarJobs([]);
+      return;
+    }
+
     const similar = jobs
-      .filter(
-        (job) =>
-          job._id !== currentJob._id &&
-          (job.companyId._id === currentJob.companyId._id ||
-            job.category === currentJob.category)
-      )
+      .filter((job) => job._id !== currentJob._id)
+      .filter((job) => normalize(getTitle(job)) === currentTitle)
       .slice(0, 4);
+
     setSimilarJobs(similar);
   };
 
